@@ -70,6 +70,7 @@ func (r *Router) Setup() {
 	users.Use(r.authMiddleware.RequireAuth())
 	{
 		users.GET("/me", r.userHandler.GetMe)
+		users.PUT("/me", r.userHandler.UpdateMe)
 		users.PUT("/me/password", r.userHandler.UpdatePassword)
 		users.GET("/me/submissions", r.userHandler.GetMySubmissions)
 		users.GET("/me/contests", r.userHandler.GetMyContests)
@@ -80,15 +81,16 @@ func (r *Router) Setup() {
 	teams := api.Group("/teams")
 	{
 		teams.GET("", r.teamHandler.ListTeams)
+		teams.GET("/invitations", r.authMiddleware.RequireAuth(), r.teamHandler.GetInvitations)
+		teams.POST("/invitations/:invitationId/accept", r.authMiddleware.RequireAuth(), r.teamHandler.AcceptInvitation)
+		teams.POST("/invitations/:invitationId/reject", r.authMiddleware.RequireAuth(), r.teamHandler.RejectInvitation)
 		teams.GET("/:id", r.teamHandler.GetTeam)
 		teams.POST("", r.authMiddleware.RequireAuth(), r.teamHandler.CreateTeam)
 		teams.PUT("/:id", r.authMiddleware.RequireAuth(), r.teamHandler.UpdateTeam)
 		teams.DELETE("/:id", r.authMiddleware.RequireAuth(), r.teamHandler.DeleteTeam)
 		teams.POST("/:id/invite", r.authMiddleware.RequireAuth(), r.teamHandler.InviteUser)
 		teams.POST("/:id/leave", r.authMiddleware.RequireAuth(), r.teamHandler.LeaveTeam)
-		teams.GET("/invitations", r.authMiddleware.RequireAuth(), r.teamHandler.GetInvitations)
-		teams.POST("/invitations/:invitationId/accept", r.authMiddleware.RequireAuth(), r.teamHandler.AcceptInvitation)
-		teams.POST("/invitations/:invitationId/reject", r.authMiddleware.RequireAuth(), r.teamHandler.RejectInvitation)
+		teams.DELETE("/:id/members/:userId", r.authMiddleware.RequireAuth(), r.teamHandler.RemoveMember)
 	}
 
 	// Problem routes
@@ -143,8 +145,10 @@ func (r *Router) Setup() {
 	{
 		// User management
 		admin.GET("/users", r.adminHandler.ListUsers)
+		admin.PUT("/users/:id", r.adminHandler.UpdateUser)
 		admin.PUT("/users/:id/role", r.adminHandler.UpdateUserRole)
 		admin.PUT("/users/:id/disable", r.adminHandler.DisableUser)
+		admin.POST("/users/:id/reset-password", r.adminHandler.ResetUserPassword)
 
 		// Problem management
 		admin.POST("/problems", r.adminHandler.CreateProblem)

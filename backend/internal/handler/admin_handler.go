@@ -1,20 +1,24 @@
 package handler
 
 import (
+	"errors"
+	"strconv"
+
+	"github.com/Yogdunana/yogduoj/backend/internal/pkg/pagination"
 	"github.com/Yogdunana/yogduoj/backend/internal/pkg/response"
 	"github.com/Yogdunana/yogduoj/backend/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
 type AdminHandler struct {
-	userService       service.UserService
-	problemService    service.ProblemService
-	contestService    service.ContestService
+	userService        service.UserService
+	problemService     service.ProblemService
+	contestService     service.ContestService
 	announcementService service.AnnouncementService
-	antiCheatService  service.AntiCheatService
-	aiService         service.AIService
-	importService     service.ImportService
-	systemService     service.SystemService
+	antiCheatService   service.AntiCheatService
+	aiService          service.AIService
+	importService      service.ImportService
+	systemService      service.SystemService
 }
 
 func NewAdminHandler(
@@ -28,33 +32,179 @@ func NewAdminHandler(
 	systemService service.SystemService,
 ) *AdminHandler {
 	return &AdminHandler{
-		userService:       userService,
-		problemService:    problemService,
-		contestService:    contestService,
+		userService:        userService,
+		problemService:     problemService,
+		contestService:     contestService,
 		announcementService: announcementService,
-		antiCheatService:  antiCheatService,
-		aiService:         aiService,
-		importService:     importService,
-		systemService:     systemService,
+		antiCheatService:   antiCheatService,
+		aiService:          aiService,
+		importService:      importService,
+		systemService:      systemService,
 	}
 }
 
+// adminUpdateUserRequest is the request body for admin updating a user.
+type adminUpdateUserRequest struct {
+	Role   string `json:"role" binding:"omitempty,oneof=user admin"`
+	Status string `json:"status" binding:"omitempty,oneof=active disabled"`
+}
+
+// adminResetPasswordRequest is the request body for admin resetting a user's password.
+type adminResetPasswordRequest struct {
+	NewPassword string `json:"new_password" binding:"required,min=8"`
+}
+
 // ListUsers returns all users (admin).
+// GET /api/v1/admin/users
 func (h *AdminHandler) ListUsers(c *gin.Context) {
-	// TODO: implement admin user listing
-	response.Error(c, 501, "not implemented")
+	p := pagination.GetPagination(c)
+	search := c.Query("search")
+	role := c.Query("role")
+	status := c.Query("status")
+
+	users, total, err := h.userService.ListUsersWithFilters(
+		c.Request.Context(),
+		p.Offset(),
+		p.PageSize,
+		search,
+		role,
+		status,
+	)
+	if err != nil {
+		response.InternalError(c, "failed to get users")
+		return
+	}
+
+	response.PaginatedResponse(c, users, total, p.Page, p.PageSize)
 }
 
 // UpdateUserRole updates a user's role (admin).
+// PUT /api/v1/admin/users/:id/role
 func (h *AdminHandler) UpdateUserRole(c *gin.Context) {
-	// TODO: implement
-	response.Error(c, 501, "not implemented")
+	idStr := c.Param("id")
+	userID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid user id")
+		return
+	}
+
+	var req struct {
+		Role string `json:"role" binding:"required,oneof=user admin"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "invalid request parameters: "+err.Error())
+		return
+	}
+
+	if err := h.userService.UpdateUserRoleAndStatus(c.Request.Context(), uint(userID), req.Role, ""); err != nil {
+		if errors.Is(err, service.ErrUserNotFound) {
+			response.NotFound(c, "user not found")
+			return
+		}
+		response.InternalError(c, "failed to update user role")
+		return
+	}
+
+	response.Success(c, nil)
 }
 
 // DisableUser disables a user account (admin).
+// PUT /api/v1/admin/users/:id/disable
 func (h *AdminHandler) DisableUser(c *gin.Context) {
-	// TODO: implement
-	response.Error(c, 501, "not implemented")
+	idStr := c.Param("id")
+	userID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid user id")
+		return
+	}
+
+	var req struct {
+		Status string `json:"status" binding:"required,oneof=active disabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "invalid request parameters: "+err.Error())
+		return
+	}
+
+	if err := h.userService.UpdateUserRoleAndStatus(c.Request.Context(), uint(userID), "", req.Status); err != nil {
+		if errors.Is(err, service.ErrUserNotFound) {
+			response.NotFound(c, "user not found")
+			return
+		}
+		response.InternalError(c, "failed to update user status")
+		return
+	}
+
+	response.Success(c, nil)
+}
+
+// UpdateUser updates a user's role and/or status (admin).
+// PUT /api/v1/admin/users/:id
+func (h *AdminHandler) UpdateUser(c *gin.Context) {
+	idStr := c.Param("id")
+	userID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid user id")
+		return
+	}
+
+	var req adminUpdateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "invalid request parameters: "+err.Error())
+		return
+	}
+
+	if err := h.userService.UpdateUserRoleAndStatus(
+		c.Request.Context(),
+		uint(userID),
+		req.Role,
+		req.Status,
+	); err != nil {
+		if errors.Is(err, service.ErrUserNotFound) {
+			response.NotFound(c, "user not found")
+			return
+		}
+		response.InternalError(c, "failed to update user")
+		return
+	}
+
+	response.Success(c, nil)
+}
+
+// ResetUserPassword resets a user's password (admin).
+// POST /api/v1/admin/users/:id/reset-password
+func (h *AdminHandler) ResetUserPassword(c *gin.Context) {
+	idStr := c.Param("id")
+	userID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid user id")
+		return
+	}
+
+	var req adminResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "invalid request parameters: "+err.Error())
+		return
+	}
+
+	if err := h.userService.ResetUserPassword(c.Request.Context(), uint(userID), req.NewPassword); err != nil {
+		if errors.Is(err, service.ErrUserNotFound) {
+			response.NotFound(c, "user not found")
+			return
+		}
+		if errors.Is(err, service.ErrPasswordTooShort) {
+			response.BadRequest(c, "password must be at least 8 characters")
+			return
+		}
+		if errors.Is(err, service.ErrPasswordWeak) {
+			response.BadRequest(c, "password must contain uppercase, lowercase, and digit")
+			return
+		}
+		response.InternalError(c, "failed to reset password")
+		return
+	}
+
+	response.Success(c, nil)
 }
 
 // CreateProblem creates a new problem (admin).

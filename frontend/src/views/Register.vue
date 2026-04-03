@@ -3,48 +3,85 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
+import { NCard, NForm, NFormItem, NInput, NButton, NSpace, NSpin, useMessage } from 'naive-ui'
+import type { FormRules, FormInst } from 'naive-ui'
 
 const router = useRouter()
 const { t } = useI18n()
 const authStore = useAuthStore()
+const message = useMessage()
 
+const formRef = ref<FormInst | null>(null)
 const username = ref('')
 const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
 const loading = ref(false)
-const errorMsg = ref('')
+
+const rules: FormRules = {
+  username: [
+    { required: true, message: () => t('auth.usernameRequired'), trigger: 'blur' },
+    {
+      min: 4,
+      max: 16,
+      message: () => t('auth.usernameFormat'),
+      trigger: 'blur',
+    },
+    {
+      pattern: /^[a-zA-Z0-9]+$/,
+      message: () => t('auth.usernameFormat'),
+      trigger: 'blur',
+    },
+  ],
+  email: [
+    { required: true, message: () => t('auth.emailRequired'), trigger: 'blur' },
+    {
+      type: 'email',
+      message: () => t('auth.emailFormat'),
+      trigger: 'blur',
+    },
+  ],
+  password: [
+    { required: true, message: () => t('auth.passwordRequired'), trigger: 'blur' },
+    {
+      min: 8,
+      message: () => t('auth.passwordMinLength'),
+      trigger: 'blur',
+    },
+    {
+      pattern: /^(?=.*[a-zA-Z])(?=.*\d)/,
+      message: () => t('auth.passwordFormat'),
+      trigger: 'blur',
+    },
+  ],
+  confirmPassword: [
+    { required: true, message: () => t('auth.passwordRequired'), trigger: 'blur' },
+    {
+      validator: (_rule: unknown, value: string) => {
+        if (value !== password.value) {
+          return new Error(t('auth.passwordMismatch'))
+        }
+        return true
+      },
+      trigger: 'blur',
+    },
+  ],
+}
 
 async function handleRegister() {
-  errorMsg.value = ''
-
-  if (!username.value) {
-    errorMsg.value = t('auth.usernameRequired')
-    return
-  }
-  if (!email.value) {
-    errorMsg.value = t('auth.emailRequired')
-    return
-  }
-  if (!password.value) {
-    errorMsg.value = t('auth.passwordRequired')
-    return
-  }
-  if (password.value.length < 6) {
-    errorMsg.value = t('auth.passwordMinLength')
-    return
-  }
-  if (password.value !== confirmPassword.value) {
-    errorMsg.value = t('auth.passwordMismatch')
+  try {
+    await formRef.value?.validate()
+  } catch {
     return
   }
 
   loading.value = true
   try {
     await authStore.register(username.value, email.value, password.value)
+    message.success(t('auth.registerSuccess'))
     router.push({ name: 'Home' })
   } catch (err: unknown) {
-    errorMsg.value = (err instanceof Error) ? err.message : t('errors.unknownError')
+    message.error((err instanceof Error) ? err.message : t('errors.unknownError'))
   } finally {
     loading.value = false
   }
@@ -54,71 +91,80 @@ async function handleRegister() {
 <template>
   <div class="register-page">
     <div class="register-container">
-      <div class="register-card card">
+      <NCard class="register-card">
         <div class="register-header">
           <h1 class="register-title">{{ t('auth.register') }}</h1>
           <p class="register-subtitle">YogduOJ</p>
         </div>
 
-        <div v-if="errorMsg" class="error-banner">
-          <span>{{ errorMsg }}</span>
-        </div>
+        <NSpin :show="loading">
+          <NForm
+            ref="formRef"
+            :model="{ username, email, password, confirmPassword }"
+            :rules="rules"
+            label-placement="top"
+            class="register-form"
+            @submit.prevent="handleRegister"
+          >
+            <NFormItem :label="t('auth.username')" path="username">
+              <NInput
+                v-model:value="username"
+                :placeholder="t('auth.username')"
+                autocomplete="username"
+                maxlength="16"
+                show-count
+                @keyup.enter="handleRegister"
+              />
+            </NFormItem>
 
-        <form class="register-form" @submit.prevent="handleRegister">
-          <div class="form-group">
-            <label class="form-label">{{ t('auth.username') }}</label>
-            <input
-              v-model="username"
-              type="text"
-              class="form-input"
-              :placeholder="t('auth.username')"
-              autocomplete="username"
-            />
-          </div>
+            <NFormItem :label="t('auth.email')" path="email">
+              <NInput
+                v-model:value="email"
+                :placeholder="t('auth.email')"
+                autocomplete="email"
+                @keyup.enter="handleRegister"
+              />
+            </NFormItem>
 
-          <div class="form-group">
-            <label class="form-label">{{ t('auth.email') }}</label>
-            <input
-              v-model="email"
-              type="email"
-              class="form-input"
-              :placeholder="t('auth.email')"
-              autocomplete="email"
-            />
-          </div>
+            <NFormItem :label="t('auth.password')" path="password">
+              <NInput
+                v-model:value="password"
+                type="password"
+                show-password-on="click"
+                :placeholder="t('auth.password')"
+                autocomplete="new-password"
+                @keyup.enter="handleRegister"
+              />
+            </NFormItem>
 
-          <div class="form-group">
-            <label class="form-label">{{ t('auth.password') }}</label>
-            <input
-              v-model="password"
-              type="password"
-              class="form-input"
-              :placeholder="t('auth.password')"
-              autocomplete="new-password"
-            />
-          </div>
+            <NFormItem :label="t('auth.confirmPassword')" path="confirmPassword">
+              <NInput
+                v-model:value="confirmPassword"
+                type="password"
+                show-password-on="click"
+                :placeholder="t('auth.confirmPassword')"
+                autocomplete="new-password"
+                @keyup.enter="handleRegister"
+              />
+            </NFormItem>
 
-          <div class="form-group">
-            <label class="form-label">{{ t('auth.confirmPassword') }}</label>
-            <input
-              v-model="confirmPassword"
-              type="password"
-              class="form-input"
-              :placeholder="t('auth.confirmPassword')"
-              autocomplete="new-password"
-            />
-          </div>
-
-          <button type="submit" class="btn btn-primary btn-full" :disabled="loading">
-            {{ loading ? t('common.loading') : t('auth.register') }}
-          </button>
-        </form>
+            <NButton
+              type="primary"
+              block
+              size="large"
+              :loading="loading"
+              @click="handleRegister"
+            >
+              {{ t('auth.register') }}
+            </NButton>
+          </NForm>
+        </NSpin>
 
         <div class="register-footer">
           <span>{{ t('auth.hasAccount') }}</span>
           <router-link to="/login">{{ t('auth.login') }}</router-link>
         </div>
-      </div>
+      </NCard>
     </div>
   </div>
 </template>
@@ -158,57 +204,10 @@ async function handleRegister() {
   color: var(--color-text-secondary);
 }
 
-.error-banner {
-  padding: 12px 16px;
-  margin-bottom: 20px;
-  border-radius: var(--border-radius);
-  background-color: rgba(255, 82, 82, 0.1);
-  border: 1px solid rgba(255, 82, 82, 0.3);
-  color: var(--color-error);
-  font-size: 14px;
-}
-
 .register-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.form-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text);
-}
-
-.form-input {
-  padding: 10px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--border-radius);
-  background-color: var(--color-bg);
-  color: var(--color-text);
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.2s ease;
-
-  &::placeholder {
-    color: var(--color-text-secondary);
-  }
-
-  &:focus {
-    border-color: var(--color-primary);
-  }
-}
-
-.btn-full {
-  width: 100%;
-  padding: 12px;
-  font-size: 16px;
+  gap: 4px;
 }
 
 .register-footer {

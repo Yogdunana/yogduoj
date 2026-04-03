@@ -3,27 +3,33 @@ import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
+import { NCard, NForm, NFormItem, NInput, NButton, NCheckbox, NSpace, NAlert, NSpin, useMessage } from 'naive-ui'
 
 const router = useRouter()
 const route = useRoute()
 const { t } = useI18n()
 const authStore = useAuthStore()
+const message = useMessage()
 
+const formRef = ref()
 const username = ref('')
 const password = ref('')
 const rememberMe = ref(false)
 const loading = ref(false)
-const errorMsg = ref('')
+
+const rules = {
+  username: [
+    { required: true, message: () => t('auth.usernameRequired'), trigger: 'blur' },
+  ],
+  password: [
+    { required: true, message: () => t('auth.passwordRequired'), trigger: 'blur' },
+  ],
+}
 
 async function handleLogin() {
-  errorMsg.value = ''
-
-  if (!username.value) {
-    errorMsg.value = t('auth.usernameRequired')
-    return
-  }
-  if (!password.value) {
-    errorMsg.value = t('auth.passwordRequired')
+  try {
+    await formRef.value?.validate()
+  } catch {
     return
   }
 
@@ -32,8 +38,9 @@ async function handleLogin() {
     await authStore.login(username.value, password.value)
     const redirect = (route.query.redirect as string) || '/'
     router.push(redirect)
+    message.success(t('auth.loginSuccess'))
   } catch (err: unknown) {
-    errorMsg.value = (err instanceof Error) ? err.message : t('errors.unknownError')
+    message.error((err instanceof Error) ? err.message : t('errors.unknownError'))
   } finally {
     loading.value = false
   }
@@ -43,56 +50,69 @@ async function handleLogin() {
 <template>
   <div class="login-page">
     <div class="login-container">
-      <div class="login-card card">
+      <NCard class="login-card">
         <div class="login-header">
           <h1 class="login-title">{{ t('auth.login') }}</h1>
           <p class="login-subtitle">YogduOJ</p>
         </div>
 
-        <form v-if="errorMsg" class="error-banner" @submit.prevent>
-          <span>{{ errorMsg }}</span>
-        </form>
+        <NSpin :show="loading">
+          <NForm
+            ref="formRef"
+            :model="{ username, password }"
+            :rules="rules"
+            label-placement="top"
+            class="login-form"
+            @submit.prevent="handleLogin"
+          >
+            <NFormItem :label="t('auth.username')" path="username">
+              <NInput
+                v-model:value="username"
+                :placeholder="t('auth.username')"
+                autocomplete="username"
+                size="large"
+                @keyup.enter="handleLogin"
+              />
+            </NFormItem>
 
-        <form class="login-form" @submit.prevent="handleLogin">
-          <div class="form-group">
-            <label class="form-label">{{ t('auth.username') }}</label>
-            <input
-              v-model="username"
-              type="text"
-              class="form-input"
-              :placeholder="t('auth.username')"
-              autocomplete="username"
-            />
-          </div>
+            <NFormItem :label="t('auth.password')" path="password">
+              <NInput
+                v-model:value="password"
+                type="password"
+                show-password-on="click"
+                :placeholder="t('auth.password')"
+                autocomplete="current-password"
+                size="large"
+                @keyup.enter="handleLogin"
+              />
+            </NFormItem>
 
-          <div class="form-group">
-            <label class="form-label">{{ t('auth.password') }}</label>
-            <input
-              v-model="password"
-              type="password"
-              class="form-input"
-              :placeholder="t('auth.password')"
-              autocomplete="current-password"
-            />
-          </div>
+            <div class="form-row">
+              <NCheckbox v-model:checked="rememberMe">
+                {{ t('auth.rememberMe') }}
+              </NCheckbox>
+              <router-link to="/forgot-password" class="forgot-link">
+                {{ t('auth.forgotPassword') }}
+              </router-link>
+            </div>
 
-          <div class="form-row">
-            <label class="checkbox-label">
-              <input v-model="rememberMe" type="checkbox" />
-              <span>{{ t('auth.rememberMe') }}</span>
-            </label>
-          </div>
-
-          <button type="submit" class="btn btn-primary btn-full" :disabled="loading">
-            {{ loading ? t('common.loading') : t('auth.login') }}
-          </button>
-        </form>
+            <NButton
+              type="primary"
+              block
+              size="large"
+              :loading="loading"
+              @click="handleLogin"
+            >
+              {{ t('auth.login') }}
+            </NButton>
+          </NForm>
+        </NSpin>
 
         <div class="login-footer">
           <span>{{ t('auth.noAccount') }}</span>
           <router-link to="/register">{{ t('auth.register') }}</router-link>
         </div>
-      </div>
+      </NCard>
     </div>
   </div>
 </template>
@@ -132,76 +152,26 @@ async function handleLogin() {
   color: var(--color-text-secondary);
 }
 
-.error-banner {
-  padding: 12px 16px;
-  margin-bottom: 20px;
-  border-radius: var(--border-radius);
-  background-color: rgba(255, 82, 82, 0.1);
-  border: 1px solid rgba(255, 82, 82, 0.3);
-  color: var(--color-error);
-  font-size: 14px;
-}
-
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.form-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text);
-}
-
-.form-input {
-  padding: 10px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--border-radius);
-  background-color: var(--color-bg);
-  color: var(--color-text);
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.2s ease;
-
-  &::placeholder {
-    color: var(--color-text-secondary);
-  }
-
-  &:focus {
-    border-color: var(--color-primary);
-  }
+  gap: 4px;
 }
 
 .form-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin: 8px 0 16px 0;
 }
 
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
+.forgot-link {
+  font-size: 13px;
   color: var(--color-text-secondary);
-  cursor: pointer;
 
-  input[type="checkbox"] {
-    accent-color: var(--color-primary);
+  &:hover {
+    color: var(--color-primary);
   }
-}
-
-.btn-full {
-  width: 100%;
-  padding: 12px;
-  font-size: 16px;
 }
 
 .login-footer {
