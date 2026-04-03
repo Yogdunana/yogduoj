@@ -20,6 +20,7 @@ declare module 'vue' {
     ConfirmDialog: typeof import('./components/common/ConfirmDialog.vue')['default']
     LoadingSpinner: typeof import('./components/common/LoadingSpinner.vue')['default']
     NButton: typeof import('naive-ui')['NButton']
+    NCard: typeof import('naive-ui')['NCard']
     NSpin: typeof import('naive-ui')['NSpin']
     Pagination: typeof import('./components/common/Pagination.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']

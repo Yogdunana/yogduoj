@@ -1,22 +1,33 @@
 import api from './index'
 import type { ApiResponse, Announcement, PaginatedResponse, PaginationParams } from '@/types'
 
-export function getAnnouncementList(params?: PaginationParams) {
+export interface AnnouncementListParams extends PaginationParams {
+  keyword?: string
+}
+
+export function listAnnouncements(params?: AnnouncementListParams) {
   return api.get<ApiResponse<PaginatedResponse<Announcement>>>('/announcements', { params })
 }
 
-export function getAnnouncementDetail(id: number) {
+export function getAnnouncement(id: number) {
   return api.get<ApiResponse<Announcement>>(`/announcements/${id}`)
 }
 
-export function createAnnouncement(data: Partial<Announcement>) {
-  return api.post<ApiResponse<Announcement>>('/announcements', data)
+// Admin APIs
+export function adminCreateAnnouncement(data: Partial<Announcement>) {
+  return api.post<ApiResponse<Announcement>>('/admin/announcements', data)
 }
 
-export function updateAnnouncement(id: number, data: Partial<Announcement>) {
-  return api.put<ApiResponse<Announcement>>(`/announcements/${id}`, data)
+export function adminUpdateAnnouncement(id: number, data: Partial<Announcement>) {
+  return api.put<ApiResponse<Announcement>>(`/admin/announcements/${id}`, data)
 }
 
-export function deleteAnnouncement(id: number) {
-  return api.delete<ApiResponse<null>>(`/announcements/${id}`)
+export function adminDeleteAnnouncement(id: number) {
+  return api.delete<ApiResponse<null>>(`/admin/announcements/${id}`)
 }
+
+// Aliases for backward compatibility
+export const createAnnouncement = adminCreateAnnouncement
+export const updateAnnouncement = adminUpdateAnnouncement
+export const deleteAnnouncement = adminDeleteAnnouncement
+export const getAnnouncementDetail = getAnnouncement
