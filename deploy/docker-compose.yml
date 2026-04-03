@@ -24,9 +24,10 @@ services:
       start_period: 30s
 
   backend:
-    build:
-      context: ../backend
-      dockerfile: Dockerfile
+    image: ghcr.io/yogdunana/yogduoj-backend:latest
+    # build:
+    #   context: ../backend
+    #   dockerfile: Dockerfile
     container_name: yogduoj-backend
     restart: always
     env_file:
@@ -43,9 +44,10 @@ services:
       - yogduoj-net
 
   judge:
-    build:
-      context: ../judge
-      dockerfile: Dockerfile
+    image: ghcr.io/yogdunana/yogduoj-judge:latest
+    # build:
+    #   context: ../judge
+    #   dockerfile: Dockerfile
     container_name: yogduoj-judge
     restart: always
     privileged: true
@@ -62,9 +64,10 @@ services:
       - yogduoj-net
 
   frontend:
-    build:
-      context: ../frontend
-      dockerfile: Dockerfile
+    image: ghcr.io/yogdunana/yogduoj-frontend:latest
+    # build:
+    #   context: ../frontend
+    #   dockerfile: Dockerfile
     container_name: yogduoj-frontend
     restart: always
     ports:

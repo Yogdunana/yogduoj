@@ -1,0 +1,54 @@
+name: Deploy
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build and push backend
+        run: |
+          docker build -t ghcr.io/yogdunana/yogduoj-backend:latest ./backend
+          docker push ghcr.io/yogdunana/yogduoj-backend:latest
+
+      - name: Build and push frontend
+        run: |
+          docker build -t ghcr.io/yogdunana/yogduoj-frontend:latest ./frontend
+          docker push ghcr.io/yogdunana/yogduoj-frontend:latest
+
+      - name: Build and push judge
+        run: |
+          docker build -t ghcr.io/yogdunana/yogduoj-judge:latest ./judge
+          docker push ghcr.io/yogdunana/yogduoj-judge:latest
+
+      - name: Deploy to server via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 101.237.129.33
+          port: 23196
+          username: root
+          password: ${{ secrets.SERVER_PASSWORD }}
+          script: |
+            cd /opt/yogduoj
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker compose pull
+            docker compose up -d
+            docker image prune -f
+            sleep 10
+            curl -sf http://localhost:8080/api/v1/health || echo "Health check failed"
+
+      - name: Configure GitHub Secrets reminder
+        if: always()
+        run: |
+          echo "Make sure these secrets are configured:"
+          echo "- SERVER_PASSWORD: Server root password"
+          echo "- GITHUB_TOKEN: Automatically provided"

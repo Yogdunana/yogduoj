@@ -220,7 +220,8 @@ export type CTFCategory =
   | 'reverse'
   | 'misc'
   | 'forensics'
-  | 'blockchain'
+  | 'recon'
+  | 'vuln-reproduce'
 
 // Pagination params
 export interface PaginationParams {

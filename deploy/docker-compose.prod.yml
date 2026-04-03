@@ -1,0 +1,94 @@
+version: "3.8"
+
+# Production override - use with: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# This file extends docker-compose.yml with production-specific settings.
+
+services:
+  backend:
+    image: ghcr.io/yogdunana/yogduoj-backend:latest
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+        tag: "yogduoj-backend"
+
+  judge:
+    image: ghcr.io/yogdunana/yogduoj-judge:latest
+    restart: always
+    privileged: true
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "10"
+        tag: "yogduoj-judge"
+
+  frontend:
+    image: ghcr.io/yogdunana/yogduoj-frontend:latest
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+        tag: "yogduoj-frontend"
+
+  mysql:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+        tag: "yogduoj-mysql"
+
+  nginx:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+        tag: "yogduoj-nginx"

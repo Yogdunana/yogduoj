@@ -1,119 +1,356 @@
 <script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import {
+  NCard,
+  NGrid,
+  NGridItem,
+  NStatistic,
+  NTag,
+  NButton,
+  NSpace,
+  NIcon,
+} from 'naive-ui'
+import {
+  Rocket,
+  Trophy,
+  ShieldCheckmark,
+  People,
+  TrendingUp,
+  Notifications,
+} from '@vicons/ionicons5'
+import { listContests } from '@/api/contest'
+import { listAnnouncements } from '@/api/announcement'
+import type { Contest, Announcement } from '@/types'
 
 const { t } = useI18n()
+const router = useRouter()
 
-const stats = [
-  { label: t('home.totalUsers'), value: '1,234', icon: '👥' },
-  { label: t('home.totalProblems'), value: '256', icon: '📝' },
-  { label: t('home.totalSubmissions'), value: '45,678', icon: '📊' },
-]
+// Animated counter logic
+function useAnimatedCounter(target: number, duration = 2000) {
+  const current = ref(0)
+  let animationFrame: number | null = null
+  let startTime: number | null = null
 
-const quickLinks = [
-  { label: t('home.startPracticing'), path: '/problems', icon: '🚀' },
-  { label: t('home.viewContests'), path: '/contests', icon: '🏆' },
-  { label: t('nav.ctf'), path: '/ctf', icon: '🛡️' },
-  { label: t('nav.ranking'), path: '/contests', icon: '📈' },
-  { label: t('nav.teams'), path: '/teams', icon: '🤝' },
-  { label: t('nav.help'), path: '/help', icon: '❓' },
-]
+  function animate(timestamp: number) {
+    if (!startTime) startTime = timestamp
+    const progress = Math.min((timestamp - startTime) / duration, 1)
+    const eased = 1 - Math.pow(1 - progress, 3) // ease-out cubic
+    current.value = Math.floor(eased * target)
+    if (progress < 1) {
+      animationFrame = requestAnimationFrame(animate)
+    }
+  }
 
-const recentContests = [
-  { id: 1, title: 'Weekly Contest #42', status: 'upcoming', startTime: '2026-04-10 14:00' },
-  { id: 2, title: 'Monthly Challenge', status: 'running', startTime: '2026-04-01 10:00' },
-  { id: 3, title: 'Beginner Contest #20', status: 'ended', startTime: '2026-03-28 09:00' },
-]
+  function start() {
+    current.value = 0
+    startTime = null
+    animationFrame = requestAnimationFrame(animate)
+  }
 
-const announcements = [
-  { id: 1, title: 'System Maintenance Notice', date: '2026-04-01' },
-  { id: 2, title: 'New CTF Challenges Available', date: '2026-03-30' },
-  { id: 3, title: 'Contest Rules Update', date: '2026-03-25' },
-]
+  function stop() {
+    if (animationFrame) {
+      cancelAnimationFrame(animationFrame)
+      animationFrame = null
+    }
+  }
+
+  return { current, start, stop }
+}
+
+const usersCounter = useAnimatedCounter(1234)
+const problemsCounter = useAnimatedCounter(256)
+const submissionsCounter = useAnimatedCounter(45678)
+
+const stats = computed(() => [
+  {
+    label: t('home.totalUsers'),
+    value: usersCounter.current.value,
+    icon: People,
+    color: '#00d4ff',
+  },
+  {
+    label: t('home.totalProblems'),
+    value: problemsCounter.current.value,
+    icon: TrendingUp,
+    color: '#00e676',
+  },
+  {
+    label: t('home.totalSubmissions'),
+    value: submissionsCounter.current.value,
+    icon: Rocket,
+    color: '#e94560',
+  },
+])
+
+const quickLinks = computed(() => [
+  { label: t('home.startPracticing'), path: '/problems', icon: Rocket, color: '#00d4ff' },
+  { label: t('home.viewContests'), path: '/contests', icon: Trophy, color: '#ffab00' },
+  { label: t('nav.ctf'), path: '/ctf', icon: ShieldCheckmark, color: '#e94560' },
+  { label: t('nav.teams'), path: '/teams', icon: People, color: '#00e676' },
+  { label: t('nav.help'), path: '/help', icon: Notifications, color: '#ab47bc' },
+])
+
+// Contests data
+const contests = ref<Contest[]>([])
+const upcomingContests = computed(() => contests.value.filter(c => c.status === 'upcoming').slice(0, 3))
+const runningContests = computed(() => contests.value.filter(c => c.status === 'running').slice(0, 3))
+const recentContests = computed(() => contests.value.filter(c => c.status === 'ended').slice(0, 3))
+
+// Announcements data
+const announcements = ref<Announcement[]>([])
+
+function formatTime(dateStr: string): string {
+  const d = new Date(dateStr)
+  return d.toLocaleString()
+}
+
+function formatShortDate(dateStr: string): string {
+  const d = new Date(dateStr)
+  return d.toLocaleDateString()
+}
+
+async function fetchData() {
+  try {
+    const [contestRes, announcementRes] = await Promise.all([
+      listContests({ page: 1, pageSize: 10 }),
+      listAnnouncements({ page: 1, pageSize: 5 }),
+    ])
+    contests.value = contestRes.data.data.items
+    announcements.value = announcementRes.data.data.items
+  } catch {
+    // Silently fail - use placeholder data
+  }
+}
+
+function goToContest(id: number) {
+  router.push({ name: 'ContestDetail', params: { id } })
+}
+
+function goToAnnouncement(id: number) {
+  router.push({ name: 'AnnouncementDetail', params: { id } })
+}
+
+onMounted(() => {
+  fetchData()
+  // Start counter animations after a short delay
+  setTimeout(() => {
+    usersCounter.start()
+    problemsCounter.start()
+    submissionsCounter.start()
+  }, 300)
+})
+
+onUnmounted(() => {
+  usersCounter.stop()
+  problemsCounter.stop()
+  submissionsCounter.stop()
+})
 </script>
 
 <template>
   <div class="home-page">
-    <!-- Hero Section -->
+    <!-- Hero Section with Animated Gradient -->
     <section class="hero">
       <div class="hero-bg"></div>
+      <div class="hero-particles"></div>
       <div class="hero-content">
         <h1 class="hero-title">YogduOJ</h1>
         <p class="hero-subtitle">{{ t('home.subtitle') }}</p>
         <div class="hero-actions">
-          <router-link to="/problems" class="btn btn-primary btn-lg">
+          <NButton type="primary" size="large" @click="router.push('/problems')">
+            <template #icon>
+              <NIcon><Rocket /></NIcon>
+            </template>
             {{ t('home.startPracticing') }}
-          </router-link>
-          <router-link to="/contests" class="btn btn-secondary btn-lg">
+          </NButton>
+          <NButton size="large" ghost @click="router.push('/contests')">
+            <template #icon>
+              <NIcon><Trophy /></NIcon>
+            </template>
             {{ t('home.viewContests') }}
-          </router-link>
+          </NButton>
         </div>
       </div>
     </section>
 
-    <!-- Stats Section -->
+    <!-- Statistics Section with Animated Counters -->
     <section class="section">
       <div class="container">
-        <div class="stats-grid">
-          <div v-for="stat in stats" :key="stat.label" class="stat-card card">
-            <span class="stat-icon">{{ stat.icon }}</span>
-            <span class="stat-value">{{ stat.value }}</span>
-            <span class="stat-label">{{ stat.label }}</span>
-          </div>
-        </div>
+        <NGrid :x-gap="20" :y-gap="20" :cols="3" responsive="screen" item-responsive>
+          <NGridItem span="3 m:1" v-for="stat in stats" :key="stat.label">
+            <NCard class="stat-card">
+              <div class="stat-inner">
+                <div class="stat-icon" :style="{ color: stat.color }">
+                  <NIcon size="36">
+                    <component :is="stat.icon" />
+                  </NIcon>
+                </div>
+                <NStatistic :value="stat.value" class="stat-value">
+                  <template #label>
+                    <span class="stat-label">{{ stat.label }}</span>
+                  </template>
+                </NStatistic>
+              </div>
+            </NCard>
+          </NGridItem>
+        </NGrid>
       </div>
     </section>
 
-    <!-- Quick Links -->
+    <!-- Quick Links Grid -->
     <section class="section">
       <div class="container">
         <h2 class="section-title">{{ t('home.quickLinks') }}</h2>
-        <div class="quick-links-grid">
-          <router-link
+        <NGrid :x-gap="16" :y-gap="16" :cols="5" responsive="screen" item-responsive>
+          <NGridItem
             v-for="link in quickLinks"
             :key="link.path"
-            :to="link.path"
-            class="quick-link card"
+            span="5 m:2 l:1"
           >
-            <span class="link-icon">{{ link.icon }}</span>
-            <span class="link-label">{{ link.label }}</span>
-          </router-link>
+            <NCard class="quick-link-card" hoverable @click="router.push(link.path)">
+              <div class="quick-link-inner">
+                <div class="quick-link-icon" :style="{ color: link.color }">
+                  <NIcon size="32">
+                    <component :is="link.icon" />
+                  </NIcon>
+                </div>
+                <span class="quick-link-label">{{ link.label }}</span>
+              </div>
+            </NCard>
+          </NGridItem>
+        </NGrid>
+      </div>
+    </section>
+
+    <!-- Contests Section -->
+    <section class="section">
+      <div class="container">
+        <h2 class="section-title">{{ t('home.recentContests') }}</h2>
+
+        <!-- Running Contests -->
+        <div v-if="runningContests.length > 0" class="contest-group">
+          <h3 class="contest-group-title">
+            <NTag type="success" size="small" :bordered="false">{{ t('contests.running') }}</NTag>
+          </h3>
+          <div class="contest-list">
+            <NCard
+              v-for="contest in runningContests"
+              :key="contest.id"
+              class="contest-card"
+              hoverable
+              @click="goToContest(contest.id)"
+            >
+              <div class="contest-card-inner">
+                <div class="contest-info">
+                  <span class="contest-title">{{ contest.title }}</span>
+                  <span class="contest-meta">{{ formatTime(contest.startTime) }}</span>
+                </div>
+                <div class="contest-meta-right">
+                  <NTag size="small" :bordered="false">{{ contest.participantCount }} {{ t('contests.participants') }}</NTag>
+                  <NButton type="primary" size="small">{{ t('contests.enterContest') }}</NButton>
+                </div>
+              </div>
+            </NCard>
+          </div>
+        </div>
+
+        <!-- Upcoming Contests -->
+        <div v-if="upcomingContests.length > 0" class="contest-group">
+          <h3 class="contest-group-title">
+            <NTag type="info" size="small" :bordered="false">{{ t('contests.upcoming') }}</NTag>
+          </h3>
+          <div class="contest-list">
+            <NCard
+              v-for="contest in upcomingContests"
+              :key="contest.id"
+              class="contest-card"
+              hoverable
+              @click="goToContest(contest.id)"
+            >
+              <div class="contest-card-inner">
+                <div class="contest-info">
+                  <span class="contest-title">{{ contest.title }}</span>
+                  <span class="contest-meta">{{ formatTime(contest.startTime) }}</span>
+                </div>
+                <div class="contest-meta-right">
+                  <NTag size="small" :bordered="false">{{ contest.participantCount }} {{ t('contests.participants') }}</NTag>
+                  <NButton size="small">{{ t('contests.registerContest') }}</NButton>
+                </div>
+              </div>
+            </NCard>
+          </div>
+        </div>
+
+        <!-- Recent (Ended) Contests -->
+        <div v-if="recentContests.length > 0" class="contest-group">
+          <h3 class="contest-group-title">
+            <NTag size="small" :bordered="false">{{ t('contests.ended') }}</NTag>
+          </h3>
+          <div class="contest-list">
+            <NCard
+              v-for="contest in recentContests"
+              :key="contest.id"
+              class="contest-card"
+              hoverable
+              @click="goToContest(contest.id)"
+            >
+              <div class="contest-card-inner">
+                <div class="contest-info">
+                  <span class="contest-title">{{ contest.title }}</span>
+                  <span class="contest-meta">{{ formatTime(contest.startTime) }}</span>
+                </div>
+                <div class="contest-meta-right">
+                  <NTag size="small" :bordered="false">{{ contest.participantCount }} {{ t('contests.participants') }}</NTag>
+                </div>
+              </div>
+            </NCard>
+          </div>
+        </div>
+
+        <div v-if="contests.length === 0" class="empty-state">
+          <p>{{ t('contests.noContests') }}</p>
         </div>
       </div>
     </section>
 
-    <!-- Recent Contests & Announcements -->
+    <!-- Announcements Section -->
     <section class="section">
       <div class="container">
-        <div class="two-column">
-          <!-- Recent Contests -->
-          <div class="column">
-            <h2 class="section-title">{{ t('home.recentContests') }}</h2>
-            <div class="card">
-              <div v-for="contest in recentContests" :key="contest.id" class="list-item">
-                <div class="list-item-info">
-                  <span class="list-item-title">{{ contest.title }}</span>
-                  <span class="list-item-meta">{{ contest.startTime }}</span>
+        <h2 class="section-title">{{ t('home.announcements') }}</h2>
+        <div v-if="announcements.length > 0" class="announcement-list">
+          <NCard
+            v-for="item in announcements"
+            :key="item.id"
+            class="announcement-card"
+            hoverable
+            @click="goToAnnouncement(item.id)"
+          >
+            <div class="announcement-inner">
+              <div class="announcement-info">
+                <div class="announcement-title-row">
+                  <NTag v-if="item.isPinned" type="error" size="small" :bordered="false" class="pin-tag">
+                    {{ t('announcements.pinned') }}
+                  </NTag>
+                  <span class="announcement-title">{{ item.title }}</span>
                 </div>
-                <span :class="['status-badge', contest.status]">
-                  {{ t(`contests.${contest.status}`) }}
-                </span>
+                <span class="announcement-date">{{ formatShortDate(item.createdAt) }}</span>
               </div>
+              <NButton text type="primary">{{ t('announcements.readMore') }} &rarr;</NButton>
             </div>
-          </div>
-
-          <!-- Announcements -->
-          <div class="column">
-            <h2 class="section-title">{{ t('home.announcements') }}</h2>
-            <div class="card">
-              <div v-for="item in announcements" :key="item.id" class="list-item">
-                <div class="list-item-info">
-                  <span class="list-item-title">{{ item.title }}</span>
-                  <span class="list-item-meta">{{ item.date }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
+          </NCard>
         </div>
+        <div v-else class="empty-state">
+          <p>{{ t('announcements.noAnnouncements') }}</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer Branding -->
+    <section class="section branding-section">
+      <div class="container">
+        <p class="branding-text">Powered by <strong>YogduOJ</strong></p>
       </div>
     </section>
   </div>
@@ -129,65 +366,90 @@ const announcements = [
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 400px;
+  min-height: 440px;
   overflow: hidden;
-  margin-bottom: 40px;
+  margin-bottom: 48px;
 }
 
 .hero-bg {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 30%, #0f3460 60%, #1a1a2e 100%);
-  background-size: 300% 300%;
-  animation: gradientShift 8s ease infinite;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 20%, #0f3460 40%, #1a0a2e 60%, #0a2a1a 80%, #1a1a2e 100%);
+  background-size: 400% 400%;
+  animation: heroGradient 10s ease infinite;
 
   &::before {
     content: '';
     position: absolute;
     inset: 0;
     background: radial-gradient(circle at 20% 50%, rgba(0, 212, 255, 0.15) 0%, transparent 50%),
-                radial-gradient(circle at 80% 50%, rgba(233, 69, 96, 0.15) 0%, transparent 50%);
+                radial-gradient(circle at 80% 50%, rgba(233, 69, 96, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 50% 20%, rgba(0, 230, 118, 0.08) 0%, transparent 40%);
   }
 }
 
-@keyframes gradientShift {
+@keyframes heroGradient {
   0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+  25% { background-position: 100% 0%; }
+  50% { background-position: 50% 100%; }
+  75% { background-position: 0% 100%; }
+}
+
+.hero-particles {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, rgba(0, 212, 255, 0.4) 0%, transparent 100%),
+    radial-gradient(1px 1px at 30% 60%, rgba(233, 69, 96, 0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 50% 30%, rgba(0, 230, 118, 0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 70% 70%, rgba(0, 212, 255, 0.4) 0%, transparent 100%),
+    radial-gradient(1px 1px at 90% 40%, rgba(255, 171, 0, 0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 20% 80%, rgba(171, 71, 188, 0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 60% 10%, rgba(0, 212, 255, 0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 80% 90%, rgba(233, 69, 96, 0.3) 0%, transparent 100%);
+  animation: particleFloat 15s ease-in-out infinite;
+}
+
+@keyframes particleFloat {
+  0%, 100% { opacity: 0.6; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-10px); }
 }
 
 .hero-content {
   position: relative;
   text-align: center;
   z-index: 1;
+  padding: 40px 20px;
 }
 
 .hero-title {
-  font-size: 64px;
+  font-size: 72px;
   font-weight: 800;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent), var(--color-success));
+  background-size: 200% 200%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  animation: titleShimmer 5s ease infinite;
   margin-bottom: 16px;
   letter-spacing: -2px;
+}
+
+@keyframes titleShimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
 }
 
 .hero-subtitle {
   font-size: 20px;
   color: var(--color-text-secondary);
-  margin-bottom: 32px;
+  margin-bottom: 36px;
 }
 
 .hero-actions {
   display: flex;
   gap: 16px;
   justify-content: center;
-}
-
-.btn-lg {
-  padding: 12px 32px;
-  font-size: 16px;
-  border-radius: 12px;
 }
 
 .section {
@@ -201,29 +463,37 @@ const announcements = [
   margin-bottom: 20px;
 }
 
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+// Stat Cards
+.stat-card {
+  background-color: var(--color-bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.3s ease;
+
+  &:hover {
+    border-color: var(--color-primary);
+    transform: translateY(-2px);
+  }
+
+  :deep(.n-card__content) {
+    padding: 24px;
+  }
+}
+
+.stat-inner {
+  display: flex;
+  align-items: center;
   gap: 16px;
 }
 
-.stat-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 32px 24px;
-  text-align: center;
-}
-
 .stat-icon {
-  font-size: 32px;
-}
-
-.stat-value {
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--color-primary);
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  flex-shrink: 0;
 }
 
 .stat-label {
@@ -231,70 +501,106 @@ const announcements = [
   color: var(--color-text-secondary);
 }
 
-.quick-links-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 16px;
+.stat-value {
+  :deep(.n-statistic-value__content) {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--color-text);
+  }
 }
 
-.quick-link {
+// Quick Links
+.quick-link-card {
+  background-color: var(--color-bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: all 0.3s ease;
+
+  &:hover {
+    border-color: var(--color-primary);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+
+  :deep(.n-card__content) {
+    padding: 24px 16px;
+  }
+}
+
+.quick-link-inner {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  padding: 24px 16px;
   text-align: center;
-  text-decoration: none;
+}
+
+.quick-link-icon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.quick-link-label {
+  font-size: 14px;
+  font-weight: 500;
   color: var(--color-text);
+}
+
+// Contest Section
+.contest-group {
+  margin-bottom: 24px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.contest-group-title {
+  margin-bottom: 12px;
+}
+
+.contest-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.contest-card {
+  background-color: var(--color-bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
   transition: all 0.2s ease;
 
   &:hover {
-    transform: translateY(-4px);
     border-color: var(--color-primary);
-    color: var(--color-primary);
+  }
+
+  :deep(.n-card__content) {
+    padding: 16px 20px;
   }
 }
 
-.link-icon {
-  font-size: 36px;
-}
-
-.link-label {
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.two-column {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-}
-
-.column {
-  min-width: 0;
-}
-
-.list-item {
+.contest-card-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-
-  &:last-child {
-    border-bottom: none;
-  }
+  gap: 16px;
 }
 
-.list-item-info {
+.contest-info {
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
 }
 
-.list-item-title {
-  font-size: 14px;
+.contest-title {
+  font-size: 15px;
   font-weight: 500;
   color: var(--color-text);
   overflow: hidden;
@@ -302,37 +608,109 @@ const announcements = [
   white-space: nowrap;
 }
 
-.list-item-meta {
-  font-size: 12px;
+.contest-meta {
+  font-size: 13px;
   color: var(--color-text-secondary);
 }
 
-.status-badge {
+.contest-meta-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   flex-shrink: 0;
-  padding: 2px 10px;
-  border-radius: 12px;
-  font-size: 12px;
+}
+
+// Announcements
+.announcement-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.announcement-card {
+  background-color: var(--color-bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: var(--color-primary);
+  }
+
+  :deep(.n-card__content) {
+    padding: 16px 20px;
+  }
+}
+
+.announcement-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.announcement-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.announcement-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pin-tag {
+  flex-shrink: 0;
+}
+
+.announcement-title {
+  font-size: 15px;
   font-weight: 500;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-  &.upcoming {
-    background-color: rgba(0, 212, 255, 0.15);
+.announcement-date {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 32px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+// Branding
+.branding-section {
+  text-align: center;
+  padding: 24px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.branding-text {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+
+  strong {
     color: var(--color-primary);
-  }
-
-  &.running {
-    background-color: rgba(0, 230, 118, 0.15);
-    color: var(--color-success);
-  }
-
-  &.ended {
-    background-color: rgba(160, 160, 160, 0.15);
-    color: var(--color-text-secondary);
+    font-weight: 600;
   }
 }
 
 @media (max-width: 768px) {
+  .hero {
+    min-height: 320px;
+  }
+
   .hero-title {
-    font-size: 40px;
+    font-size: 48px;
   }
 
   .hero-subtitle {
@@ -344,8 +722,19 @@ const announcements = [
     align-items: center;
   }
 
-  .two-column {
-    grid-template-columns: 1fr;
+  .contest-card-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .contest-meta-right {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .announcement-inner {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 </style>
