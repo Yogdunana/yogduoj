@@ -1,0 +1,55 @@
+syntax = "proto3";
+package judge;
+
+option go_package = "github.com/Yogdunana/yogduoj/judge/proto";
+
+service JudgeService {
+  rpc Submit(JudgeRequest) returns (JudgeResponse);
+  rpc GetStatus(Empty) returns (JudgeStatusResponse);
+}
+
+message JudgeRequest {
+  string submission_id = 1;
+  string language = 2;
+  string code = 3;
+  int64 time_limit_ms = 4;
+  int64 memory_limit_kb = 5;
+  repeated TestCase test_cases = 6;
+  string special_judge_path = 7;
+  string ctf_flag = 8;
+  string judge_type = 9;
+}
+
+message TestCase {
+  string input = 1;
+  string expected_output = 2;
+  int32 score_weight = 3;
+}
+
+message JudgeResponse {
+  string submission_id = 1;
+  string verdict = 2;
+  int32 total_score = 3;
+  int64 time_used_ms = 4;
+  int64 memory_used_kb = 5;
+  string error_message = 6;
+  repeated TestCaseResult case_results = 7;
+}
+
+message TestCaseResult {
+  int32 index = 1;
+  string verdict = 2;
+  int64 time_used_ms = 3;
+  int64 memory_used_kb = 4;
+  string error_message = 5;
+  int32 score = 6;
+}
+
+message JudgeStatusResponse {
+  int32 queue_size = 1;
+  int32 running_count = 2;
+  int32 pool_size = 3;
+  bool healthy = 4;
+}
+
+message Empty {}

@@ -1,0 +1,28 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: yogduoj-backend-dev
+    restart: "no"
+    command: ["go", "run", "cmd/server/main.go", "--hot-reload"]
+    volumes:
+      - ../backend:/app
+      - submission_data:/data/submissions
+      - problem_data:/data/problems
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: yogduoj-frontend-dev
+    restart: "no"
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+    volumes:
+      - ../frontend:/app
+    ports:
+      - "5173:5173"

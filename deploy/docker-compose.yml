@@ -1,0 +1,104 @@
+version: "3.8"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: yogduoj-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: yogduoj
+      MYSQL_CHARSET: utf8mb4
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "127.0.0.1:3306:3306"
+    networks:
+      - yogduoj-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: yogduoj-backend
+    restart: always
+    env_file:
+      - .env
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - submission_data:/data/submissions
+      - problem_data:/data/problems
+    ports:
+      - "127.0.0.1:8080:8080"
+    networks:
+      - yogduoj-net
+
+  judge:
+    build:
+      context: ../judge
+      dockerfile: Dockerfile
+    container_name: yogduoj-judge
+    restart: always
+    privileged: true
+    env_file:
+      - .env
+    depends_on:
+      - backend
+    volumes:
+      - submission_data:/data/submissions:ro
+      - problem_data:/data/problems:ro
+    ports:
+      - "127.0.0.1:50051:50051"
+    networks:
+      - yogduoj-net
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: yogduoj-frontend
+    restart: always
+    ports:
+      - "127.0.0.1:3000:80"
+    networks:
+      - yogduoj-net
+
+  nginx:
+    image: nginx:alpine
+    container_name: yogduoj-nginx
+    restart: always
+    ports:
+      - "23196:80"
+      - "23197:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - cert_data:/etc/nginx/certs:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - yogduoj-net
+
+volumes:
+  mysql_data:
+    driver: local
+  submission_data:
+    driver: local
+  problem_data:
+    driver: local
+  cert_data:
+    driver: local
+
+networks:
+  yogduoj-net:
+    driver: bridge
