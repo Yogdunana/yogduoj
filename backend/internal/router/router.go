@@ -154,6 +154,13 @@ func (r *Router) Setup() {
 		admin.POST("/problems", r.adminHandler.CreateProblem)
 		admin.PUT("/problems/:id", r.adminHandler.UpdateProblem)
 		admin.DELETE("/problems/:id", r.adminHandler.DeleteProblem)
+		admin.POST("/problems/:id/testdata", r.adminHandler.UploadTestData)
+		admin.GET("/problems/:id/testdata", r.adminHandler.GetTestDataList)
+		admin.DELETE("/problems/:id/testdata/:dataId", r.adminHandler.DeleteTestData)
+
+		// Submission management
+		admin.GET("/submissions", r.adminHandler.ListAllSubmissions)
+		admin.POST("/submissions/:id/rejudge", r.adminHandler.RejudgeSubmission)
 
 		// Contest management
 		admin.POST("/contests", r.adminHandler.CreateContest)

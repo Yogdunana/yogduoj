@@ -13,6 +13,7 @@ import (
 type AdminHandler struct {
 	userService        service.UserService
 	problemService     service.ProblemService
+	submissionService  service.SubmissionService
 	contestService     service.ContestService
 	announcementService service.AnnouncementService
 	antiCheatService   service.AntiCheatService
@@ -24,6 +25,7 @@ type AdminHandler struct {
 func NewAdminHandler(
 	userService service.UserService,
 	problemService service.ProblemService,
+	submissionService service.SubmissionService,
 	contestService service.ContestService,
 	announcementService service.AnnouncementService,
 	antiCheatService service.AntiCheatService,
@@ -34,6 +36,7 @@ func NewAdminHandler(
 	return &AdminHandler{
 		userService:        userService,
 		problemService:     problemService,
+		submissionService:  submissionService,
 		contestService:     contestService,
 		announcementService: announcementService,
 		antiCheatService:   antiCheatService,
@@ -207,23 +210,240 @@ func (h *AdminHandler) ResetUserPassword(c *gin.Context) {
 	response.Success(c, nil)
 }
 
+// ==================== Problem Management (Admin) ====================
+
 // CreateProblem creates a new problem (admin).
+// POST /api/v1/admin/problems
+// JSON body: { "title": "...", "type": "programming", "difficulty": "easy", ... }
 func (h *AdminHandler) CreateProblem(c *gin.Context) {
-	// TODO: implement
-	response.Error(c, 501, "not implemented")
+	var req service.CreateProblemRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "invalid request parameters: "+err.Error())
+		return
+	}
+
+	adminID, exists := c.Get("user_id")
+	if !exists {
+		response.Unauthorized(c, "authentication required")
+		return
+	}
+
+	problem, err := h.problemService.CreateProblem(c.Request.Context(), adminID.(uint), req)
+	if err != nil {
+		response.InternalError(c, "failed to create problem")
+		return
+	}
+
+	response.Success(c, problem)
 }
 
 // UpdateProblem updates a problem (admin).
+// PUT /api/v1/admin/problems/:id
 func (h *AdminHandler) UpdateProblem(c *gin.Context) {
-	// TODO: implement
-	response.Error(c, 501, "not implemented")
+	idStr := c.Param("id")
+	problemID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid problem id")
+		return
+	}
+
+	var req service.UpdateProblemRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "invalid request parameters: "+err.Error())
+		return
+	}
+
+	problem, err := h.problemService.UpdateProblem(c.Request.Context(), uint(problemID), req)
+	if err != nil {
+		if errors.Is(err, service.ErrProblemNotFound) {
+			response.NotFound(c, "problem not found")
+			return
+		}
+		response.InternalError(c, "failed to update problem")
+		return
+	}
+
+	response.Success(c, problem)
 }
 
 // DeleteProblem deletes a problem (admin).
+// DELETE /api/v1/admin/problems/:id
 func (h *AdminHandler) DeleteProblem(c *gin.Context) {
-	// TODO: implement
-	response.Error(c, 501, "not implemented")
+	idStr := c.Param("id")
+	problemID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid problem id")
+		return
+	}
+
+	if err := h.problemService.DeleteProblem(c.Request.Context(), uint(problemID)); err != nil {
+		if errors.Is(err, service.ErrProblemNotFound) {
+			response.NotFound(c, "problem not found")
+			return
+		}
+		response.InternalError(c, "failed to delete problem")
+		return
+	}
+
+	response.Success(c, nil)
 }
+
+// UploadTestData uploads test data files for a problem (admin).
+// POST /api/v1/admin/problems/:id/testdata
+// Multipart form: files[] (pairs of .in and .out files)
+func (h *AdminHandler) UploadTestData(c *gin.Context) {
+	idStr := c.Param("id")
+	problemID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid problem id")
+		return
+	}
+
+	form, err := c.MultipartForm()
+	if err != nil {
+		response.BadRequest(c, "failed to parse multipart form: "+err.Error())
+		return
+	}
+
+	files := form.File["files"]
+	if len(files) == 0 {
+		response.BadRequest(c, "no files uploaded")
+		return
+	}
+
+	testData, err := h.problemService.UploadTestData(c.Request.Context(), uint(problemID), files)
+	if err != nil {
+		if errors.Is(err, service.ErrProblemNotFound) {
+			response.NotFound(c, "problem not found")
+			return
+		}
+		response.InternalError(c, "failed to upload test data: "+err.Error())
+		return
+	}
+
+	response.Success(c, testData)
+}
+
+// DeleteTestData deletes a specific test data entry (admin).
+// DELETE /api/v1/admin/problems/:id/testdata/:dataId
+func (h *AdminHandler) DeleteTestData(c *gin.Context) {
+	idStr := c.Param("id")
+	problemID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid problem id")
+		return
+	}
+
+	dataIdStr := c.Param("dataId")
+	dataID, err := strconv.ParseUint(dataIdStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid test data id")
+		return
+	}
+
+	if err := h.problemService.DeleteTestData(c.Request.Context(), uint(problemID), uint(dataID)); err != nil {
+		if errors.Is(err, service.ErrTestDataNotFound) {
+			response.NotFound(c, "test data not found")
+			return
+		}
+		response.InternalError(c, "failed to delete test data")
+		return
+	}
+
+	response.Success(c, nil)
+}
+
+// GetTestDataList returns all test data for a problem (admin).
+// GET /api/v1/admin/problems/:id/testdata
+func (h *AdminHandler) GetTestDataList(c *gin.Context) {
+	idStr := c.Param("id")
+	problemID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid problem id")
+		return
+	}
+
+	testData, err := h.problemService.GetTestDataList(c.Request.Context(), uint(problemID))
+	if err != nil {
+		response.InternalError(c, "failed to get test data")
+		return
+	}
+
+	response.Success(c, testData)
+}
+
+// ==================== Submission Management (Admin) ====================
+
+// ListAllSubmissions returns all submissions (admin sees all).
+// GET /api/v1/admin/submissions?page=1&page_size=20&problem_id=1&user_id=1&result=AC&language=cpp
+func (h *AdminHandler) ListAllSubmissions(c *gin.Context) {
+	p := pagination.GetPagination(c)
+
+	filter := service.SubmissionFilter{}
+
+	if problemID := c.Query("problem_id"); problemID != "" {
+		if id, err := strconv.ParseUint(problemID, 10, 32); err == nil {
+			filter.ProblemID = uint(id)
+		}
+	}
+	if userID := c.Query("user_id"); userID != "" {
+		if id, err := strconv.ParseUint(userID, 10, 32); err == nil {
+			filter.UserID = uint(id)
+		}
+	}
+	if contestID := c.Query("contest_id"); contestID != "" {
+		if id, err := strconv.ParseUint(contestID, 10, 32); err == nil {
+			filter.ContestID = uint(id)
+		}
+	}
+	if result := c.Query("result"); result != "" {
+		filter.JudgeResult = result
+	}
+	if language := c.Query("language"); language != "" {
+		filter.Language = language
+	}
+
+	submissions, total, err := h.submissionService.ListSubmissions(
+		c.Request.Context(),
+		filter,
+		p.Offset(),
+		p.PageSize,
+		0, // Admin sees all, no user filter
+		true, // isAdmin = true
+	)
+	if err != nil {
+		response.InternalError(c, "failed to get submissions")
+		return
+	}
+
+	response.PaginatedResponse(c, submissions, total, p.Page, p.PageSize)
+}
+
+// RejudgeSubmission triggers rejudge for a submission (admin).
+// POST /api/v1/admin/submissions/:id/rejudge
+func (h *AdminHandler) RejudgeSubmission(c *gin.Context) {
+	idStr := c.Param("id")
+	submissionID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid submission id")
+		return
+	}
+
+	if err := h.submissionService.RejudgeSubmission(c.Request.Context(), uint(submissionID)); err != nil {
+		if errors.Is(err, service.ErrSubmissionNotFound) {
+			response.NotFound(c, "submission not found")
+			return
+		}
+		response.InternalError(c, "failed to rejudge submission")
+		return
+	}
+
+	response.Success(c, gin.H{
+		"message": "rejudge triggered",
+	})
+}
+
+// ==================== Contest Management (Admin) ====================
 
 // CreateContest creates a new contest (admin).
 func (h *AdminHandler) CreateContest(c *gin.Context) {
@@ -243,11 +463,15 @@ func (h *AdminHandler) DeleteContest(c *gin.Context) {
 	response.Error(c, 501, "not implemented")
 }
 
+// ==================== Announcement Management (Admin) ====================
+
 // CreateAnnouncement creates an announcement (admin).
 func (h *AdminHandler) CreateAnnouncement(c *gin.Context) {
 	// TODO: implement
 	response.Error(c, 501, "not implemented")
 }
+
+// ==================== Anti-Cheat (Admin) ====================
 
 // DetectCheating triggers cheat detection for a contest (admin).
 func (h *AdminHandler) DetectCheating(c *gin.Context) {
@@ -267,6 +491,8 @@ func (h *AdminHandler) ReviewCheatRecord(c *gin.Context) {
 	response.Error(c, 501, "not implemented")
 }
 
+// ==================== AI Features (Admin) ====================
+
 // GenerateAIProblem generates a problem using AI (admin).
 func (h *AdminHandler) GenerateAIProblem(c *gin.Context) {
 	// TODO: implement
@@ -279,11 +505,15 @@ func (h *AdminHandler) GenerateAITestdata(c *gin.Context) {
 	response.Error(c, 501, "not implemented")
 }
 
+// ==================== Import (Admin) ====================
+
 // ImportProblems imports problems from external platform (admin).
 func (h *AdminHandler) ImportProblems(c *gin.Context) {
 	// TODO: implement
 	response.Error(c, 501, "not implemented")
 }
+
+// ==================== System Config (Admin) ====================
 
 // GetSystemConfigs returns system configurations (admin).
 func (h *AdminHandler) GetSystemConfigs(c *gin.Context) {
@@ -296,6 +526,8 @@ func (h *AdminHandler) SetSystemConfig(c *gin.Context) {
 	// TODO: implement
 	response.Error(c, 501, "not implemented")
 }
+
+// ==================== CTF Resources (Admin) ====================
 
 // CreateCTFResource creates a CTF resource (admin).
 func (h *AdminHandler) CreateCTFResource(c *gin.Context) {

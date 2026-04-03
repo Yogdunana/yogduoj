@@ -76,8 +76,6 @@ func main() {
 	authService := service.NewAuthService(userRepo, jwtManager)
 	userService := service.NewUserService(userRepo)
 	teamService := service.NewTeamService(teamRepo, userRepo)
-	problemService := service.NewProblemService(problemRepo)
-	submissionService := service.NewSubmissionService(submissionRepo)
 	contestService := service.NewContestService(contestRepo)
 	judgeService := service.NewJudgeService()
 	announcementService := service.NewAnnouncementService(announcementRepo)
@@ -85,6 +83,8 @@ func main() {
 	aiService := service.NewAIService()
 	importService := service.NewImportService()
 	systemService := service.NewSystemService()
+	problemService := service.NewProblemService(problemRepo, submissionRepo)
+	submissionService := service.NewSubmissionService(submissionRepo, problemRepo, judgeService)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -97,6 +97,7 @@ func main() {
 	adminHandler := handler.NewAdminHandler(
 		userService,
 		problemService,
+		submissionService,
 		contestService,
 		announcementService,
 		antiCheatService,

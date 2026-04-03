@@ -15,8 +15,13 @@ type SubmissionRepository interface {
 	GetByUser(ctx context.Context, userID uint, offset, limit int) ([]model.Submission, int64, error)
 	GetByProblem(ctx context.Context, problemID uint, offset, limit int) ([]model.Submission, int64, error)
 	GetByContest(ctx context.Context, contestID uint, offset, limit int) ([]model.Submission, int64, error)
-	UpdateJudgeResult(ctx context.Context, id uint, result string, score float64, timeUsed, memoryUsed int, errMsg string) error
+	UpdateJudgeResult(ctx context.Context, id uint, result string, score float64, timeUsed, memoryUsed int, errMsg string, judgeDetail string) error
+	UpdateSubmissionStatus(ctx context.Context, id uint, status string) error
 	CountByProblemAndResult(ctx context.Context, problemID uint, result string) (int64, error)
+	GetUserProblemStatus(ctx context.Context, userID, problemID uint) (*model.UserProblemStatus, error)
+	GetUserProblemStatuses(ctx context.Context, userID uint, problemIDs []uint) (map[uint]*model.UserProblemStatus, error)
+	CountByProblem(ctx context.Context, problemID uint) (int64, error)
+	CountByUser(ctx context.Context, userID uint) (int64, error)
 }
 
 type submissionRepository struct {
@@ -124,21 +129,92 @@ func (r *submissionRepository) GetByContest(ctx context.Context, contestID uint,
 	return submissions, total, nil
 }
 
-func (r *submissionRepository) UpdateJudgeResult(ctx context.Context, id uint, result string, score float64, timeUsed, memoryUsed int, errMsg string) error {
-	return r.db.WithContext(ctx).Model(&model.Submission{}).Where("id = ?", id).Updates(map[string]interface{}{
+func (r *submissionRepository) UpdateJudgeResult(ctx context.Context, id uint, result string, score float64, timeUsed, memoryUsed int, errMsg string, judgeDetail string) error {
+	updates := map[string]interface{}{
 		"judge_result":  result,
 		"judge_score":   score,
 		"time_used_ms":  timeUsed,
 		"memory_used_kb": memoryUsed,
 		"error_message": errMsg,
+		"judge_detail":  judgeDetail,
 		"judge_end":     gorm.Expr("NOW()"),
-	}).Error
+	}
+	// If result is a final result, set status to done
+	if result == "AC" || result == "WA" || result == "TLE" || result == "RE" || result == "CE" || result == "MLE" || result == "SE" || result == "WR" {
+		updates["judge_result"] = result
+	}
+	return r.db.WithContext(ctx).Model(&model.Submission{}).Where("id = ?", id).Updates(updates).Error
+}
+
+func (r *submissionRepository) UpdateSubmissionStatus(ctx context.Context, id uint, status string) error {
+	return r.db.WithContext(ctx).Model(&model.Submission{}).Where("id = ?", id).Update("judge_result", status).Error
 }
 
 func (r *submissionRepository) CountByProblemAndResult(ctx context.Context, problemID uint, result string) (int64, error) {
 	var count int64
 	if err := r.db.WithContext(ctx).Model(&model.Submission{}).
 		Where("problem_id = ? AND judge_result = ?", problemID, result).
+		Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// GetUserProblemStatus returns the best submission status for a user on a specific problem.
+func (r *submissionRepository) GetUserProblemStatus(ctx context.Context, userID, problemID uint) (*model.UserProblemStatus, error) {
+	var status model.UserProblemStatus
+	err := r.db.WithContext(ctx).
+		Table("submissions").
+		Select("user_id, problem_id, COUNT(*) as submit_count, MAX(CASE WHEN judge_result = 'AC' THEN 1 ELSE 0 END) as accepted").
+		Where("user_id = ? AND problem_id = ?", userID, problemID).
+		Group("user_id, problem_id").
+		Scan(&status).Error
+	if err != nil {
+		return nil, err
+	}
+	return &status, nil
+}
+
+// GetUserProblemStatuses batch-fetches user problem statuses for multiple problems.
+func (r *submissionRepository) GetUserProblemStatuses(ctx context.Context, userID uint, problemIDs []uint) (map[uint]*model.UserProblemStatus, error) {
+	result := make(map[uint]*model.UserProblemStatus)
+	if len(problemIDs) == 0 {
+		return result, nil
+	}
+
+	var statuses []model.UserProblemStatus
+	if err := r.db.WithContext(ctx).
+		Table("submissions").
+		Select("user_id, problem_id, COUNT(*) as submit_count, MAX(CASE WHEN judge_result = 'AC' THEN 1 ELSE 0 END) as accepted").
+		Where("user_id = ? AND problem_id IN ?", userID, problemIDs).
+		Group("user_id, problem_id").
+		Scan(&statuses).Error; err != nil {
+		return nil, err
+	}
+
+	for i := range statuses {
+		result[statuses[i].ProblemID] = &statuses[i]
+	}
+
+	return result, nil
+}
+
+// CountByProblem returns the total number of submissions for a problem.
+func (r *submissionRepository) CountByProblem(ctx context.Context, problemID uint) (int64, error) {
+	var count int64
+	if err := r.db.WithContext(ctx).Model(&model.Submission{}).
+		Where("problem_id = ?", problemID).
+		Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// CountByUser returns the total number of submissions for a user.
+func (r *submissionRepository) CountByUser(ctx context.Context, userID uint) (int64, error) {
+	var count int64
+	if err := r.db.WithContext(ctx).Model(&model.Submission{}).
+		Where("user_id = ?", userID).
 		Count(&count).Error; err != nil {
 		return 0, err
 	}

@@ -35,22 +35,37 @@ export interface TeamMember {
 }
 
 // Problem types
+export type ProblemType = 'programming' | 'algorithm' | 'ctf'
+
 export interface Problem {
   id: number
   title: string
   description: string
   difficulty: ProblemDifficulty
+  type: ProblemType
   tags: string[]
   timeLimit: number
   memoryLimit: number
   totalSubmit: number
   acceptedCount: number
   isPublic: boolean
+  inputFormat?: string
+  outputFormat?: string
+  samples?: ProblemSample[]
+  hints?: string[]
+  attachments?: string[]
+  userStatus?: ProblemUserStatus
   createdAt: string
   updatedAt: string
 }
 
 export type ProblemDifficulty = 'easy' | 'medium' | 'hard' | 'expert'
+export type ProblemUserStatus = 'unsubmitted' | 'submitted' | 'accepted'
+
+export interface ProblemSample {
+  input: string
+  output: string
+}
 
 export interface ProblemTestCase {
   id: number
@@ -70,8 +85,11 @@ export interface Submission {
   status: SubmissionStatus
   timeUsed?: number
   memoryUsed?: number
+  score?: number
+  totalScore?: number
   code?: string
   errorMessage?: string
+  judgeDetail?: JudgeTestCase[]
   createdAt: string
 }
 
@@ -85,6 +103,17 @@ export type SubmissionStatus =
   | 'runtime_error'
   | 'compilation_error'
   | 'presentation_error'
+  | 'system_error'
+
+export interface JudgeTestCase {
+  id: number
+  status: SubmissionStatus
+  timeUsed?: number
+  memoryUsed?: number
+  score?: number
+  signal?: string
+  errorMessage?: string
+}
 
 // Contest types
 export interface Contest {

@@ -29,3 +29,18 @@ type Submission struct {
 	Problem Problem `gorm:"foreignKey:ProblemID" json:"problem,omitempty"`
 	Contest Contest `gorm:"foreignKey:ContestID" json:"contest,omitempty"`
 }
+
+// UserProblemStatus represents a user's submission status for a specific problem.
+// This is a virtual model (not stored in DB), used for batch queries.
+type UserProblemStatus struct {
+	UserID      uint `json:"user_id"`
+	ProblemID   uint `json:"problem_id"`
+	SubmitCount int  `json:"submit_count"`
+	Accepted    int  `json:"accepted"` // 1 if user has at least one AC, 0 otherwise
+}
+
+// ProblemListItem is an enriched problem list item with user status.
+type ProblemListItem struct {
+	Problem
+	UserStatus string `json:"user_status"` // "unsubmitted", "submitted", "accepted"
+}

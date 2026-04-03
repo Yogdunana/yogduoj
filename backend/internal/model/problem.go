@@ -1,6 +1,9 @@
 package model
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type Problem struct {
 	ID              uint      `gorm:"primaryKey" json:"id"`
@@ -66,4 +69,36 @@ type ProblemTag struct {
 
 	Problem Problem `gorm:"foreignKey:ProblemID" json:"problem,omitempty"`
 	Tag     Tag     `gorm:"foreignKey:TagID" json:"tag,omitempty"`
+}
+
+// ProblemAttachment represents a file attachment for a problem.
+type ProblemAttachment struct {
+	ID   uint   `json:"id"`
+	Name string `json:"name"`
+	Path string `json:"path"`
+	Size int64  `json:"size"`
+}
+
+// ParseAttachments parses the JSON-encoded attachments string into a slice.
+func ParseAttachments(attachmentsJSON string) []ProblemAttachment {
+	if attachmentsJSON == "" {
+		return nil
+	}
+	var attachments []ProblemAttachment
+	if err := json.Unmarshal([]byte(attachmentsJSON), &attachments); err != nil {
+		return nil
+	}
+	return attachments
+}
+
+// SerializeAttachments serializes a slice of ProblemAttachment to JSON string.
+func SerializeAttachments(attachments []ProblemAttachment) string {
+	if len(attachments) == 0 {
+		return "[]"
+	}
+	data, err := json.Marshal(attachments)
+	if err != nil {
+		return "[]"
+	}
+	return string(data)
 }
