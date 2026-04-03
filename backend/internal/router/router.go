@@ -118,13 +118,15 @@ func (r *Router) Setup() {
 	{
 		contests.GET("", r.contestHandler.ListContests)
 		contests.GET("/:id", r.contestHandler.GetContest)
-		contests.GET("/:id/problems", r.contestHandler.GetContestProblems)
+		contests.GET("/:id/problems", r.authMiddleware.RequireAuth(), r.contestHandler.GetContestProblems)
 		contests.GET("/:id/ranking", r.contestHandler.GetContestRanking)
+		contests.GET("/:id/ranking/frozen", r.contestHandler.GetFrozenRanking)
 		contests.POST("/:id/signup", r.authMiddleware.RequireAuth(), r.contestHandler.Signup)
 		contests.POST("/:id/withdraw", r.authMiddleware.RequireAuth(), r.contestHandler.Withdraw)
+		contests.POST("/:id/submissions", r.authMiddleware.RequireAuth(), r.contestHandler.SubmitToContest)
 	}
 
-	// Announcement routes
+	// Announcement routes (public)
 	announcements := api.Group("/announcements")
 	{
 		announcements.GET("", r.announcementHandler.ListAnnouncements)
@@ -166,9 +168,21 @@ func (r *Router) Setup() {
 		admin.POST("/contests", r.adminHandler.CreateContest)
 		admin.PUT("/contests/:id", r.adminHandler.UpdateContest)
 		admin.DELETE("/contests/:id", r.adminHandler.DeleteContest)
+		admin.PUT("/contests/:id/status", r.adminHandler.UpdateContestStatus)
+		admin.POST("/contests/:id/problems", r.adminHandler.AddContestProblem)
+		admin.DELETE("/contests/:id/problems/:problemId", r.adminHandler.RemoveContestProblem)
+		admin.GET("/contests/:id/signups", r.adminHandler.GetContestSignups)
+
+		// DIY template management
+		admin.POST("/diy-templates", r.adminHandler.CreateDIYTemplate)
+		admin.GET("/diy-templates", r.adminHandler.ListDIYTemplates)
+		admin.PUT("/diy-templates/:id", r.adminHandler.UpdateDIYTemplate)
+		admin.DELETE("/diy-templates/:id", r.adminHandler.DeleteDIYTemplate)
 
 		// Announcement management
 		admin.POST("/announcements", r.adminHandler.CreateAnnouncement)
+		admin.PUT("/announcements/:id", r.adminHandler.UpdateAnnouncement)
+		admin.DELETE("/announcements/:id", r.adminHandler.DeleteAnnouncement)
 
 		// Anti-cheat
 		admin.POST("/anti-cheat/detect", r.adminHandler.DetectCheating)

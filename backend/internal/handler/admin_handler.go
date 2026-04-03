@@ -446,29 +446,367 @@ func (h *AdminHandler) RejudgeSubmission(c *gin.Context) {
 // ==================== Contest Management (Admin) ====================
 
 // CreateContest creates a new contest (admin).
+// POST /api/v1/admin/contests
 func (h *AdminHandler) CreateContest(c *gin.Context) {
-	// TODO: implement
-	response.Error(c, 501, "not implemented")
+	var req service.CreateContestRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "invalid request parameters: "+err.Error())
+		return
+	}
+
+	adminID, exists := c.Get("user_id")
+	if !exists {
+		response.Unauthorized(c, "authentication required")
+		return
+	}
+
+	contest, err := h.contestService.CreateContest(c.Request.Context(), adminID.(uint), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrInvalidContestTime):
+			response.BadRequest(c, "end time must be after start time")
+		default:
+			response.InternalError(c, "failed to create contest")
+		}
+		return
+	}
+
+	response.Success(c, contest)
 }
 
 // UpdateContest updates a contest (admin).
+// PUT /api/v1/admin/contests/:id
 func (h *AdminHandler) UpdateContest(c *gin.Context) {
-	// TODO: implement
-	response.Error(c, 501, "not implemented")
+	idStr := c.Param("id")
+	contestID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid contest id")
+		return
+	}
+
+	var req service.UpdateContestRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "invalid request parameters: "+err.Error())
+		return
+	}
+
+	contest, err := h.contestService.UpdateContest(c.Request.Context(), uint(contestID), req)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrContestNotFound):
+			response.NotFound(c, "contest not found")
+		case errors.Is(err, service.ErrInvalidContestTime):
+			response.BadRequest(c, "end time must be after start time")
+		default:
+			response.InternalError(c, "failed to update contest")
+		}
+		return
+	}
+
+	response.Success(c, contest)
 }
 
 // DeleteContest deletes a contest (admin).
+// DELETE /api/v1/admin/contests/:id
 func (h *AdminHandler) DeleteContest(c *gin.Context) {
-	// TODO: implement
-	response.Error(c, 501, "not implemented")
+	idStr := c.Param("id")
+	contestID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid contest id")
+		return
+	}
+
+	if err := h.contestService.DeleteContest(c.Request.Context(), uint(contestID)); err != nil {
+		if errors.Is(err, service.ErrContestNotFound) {
+			response.NotFound(c, "contest not found")
+			return
+		}
+		response.InternalError(c, "failed to delete contest")
+		return
+	}
+
+	response.Success(c, nil)
+}
+
+// UpdateContestStatus updates a contest's status (admin).
+// PUT /api/v1/admin/contests/:id/status
+func (h *AdminHandler) UpdateContestStatus(c *gin.Context) {
+	idStr := c.Param("id")
+	contestID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid contest id")
+		return
+	}
+
+	var req struct {
+		Status string `json:"status" binding:"required,oneof=pending running ended cancelled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "invalid request parameters: "+err.Error())
+		return
+	}
+
+	if err := h.contestService.UpdateContestStatus(c.Request.Context(), uint(contestID), req.Status); err != nil {
+		switch {
+		case errors.Is(err, service.ErrContestNotFound):
+			response.NotFound(c, "contest not found")
+		case errors.Is(err, service.ErrInvalidContestStatus):
+			response.BadRequest(c, "invalid contest status")
+		default:
+			response.InternalError(c, "failed to update contest status")
+		}
+		return
+	}
+
+	response.Success(c, nil)
+}
+
+// AddContestProblem adds a problem to a contest (admin).
+// POST /api/v1/admin/contests/:id/problems
+func (h *AdminHandler) AddContestProblem(c *gin.Context) {
+	idStr := c.Param("id")
+	contestID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid contest id")
+		return
+	}
+
+	var req service.ContestProblemReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "invalid request parameters: "+err.Error())
+		return
+	}
+
+	if err := h.contestService.AddContestProblem(c.Request.Context(), uint(contestID), req); err != nil {
+		if errors.Is(err, service.ErrContestNotFound) {
+			response.NotFound(c, "contest not found")
+			return
+		}
+		response.InternalError(c, "failed to add problem to contest")
+		return
+	}
+
+	response.Success(c, nil)
+}
+
+// RemoveContestProblem removes a problem from a contest (admin).
+// DELETE /api/v1/admin/contests/:id/problems/:problemId
+func (h *AdminHandler) RemoveContestProblem(c *gin.Context) {
+	idStr := c.Param("id")
+	contestID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid contest id")
+		return
+	}
+
+	problemIdStr := c.Param("problemId")
+	problemID, err := strconv.ParseUint(problemIdStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid problem id")
+		return
+	}
+
+	if err := h.contestService.RemoveContestProblem(c.Request.Context(), uint(contestID), uint(problemID)); err != nil {
+		if errors.Is(err, service.ErrContestNotFound) {
+			response.NotFound(c, "contest not found")
+			return
+		}
+		response.InternalError(c, "failed to remove problem from contest")
+		return
+	}
+
+	response.Success(c, nil)
+}
+
+// GetContestSignups returns all signups for a contest (admin).
+// GET /api/v1/admin/contests/:id/signups
+func (h *AdminHandler) GetContestSignups(c *gin.Context) {
+	idStr := c.Param("id")
+	contestID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid contest id")
+		return
+	}
+
+	signups, err := h.contestService.GetContestSignups(c.Request.Context(), uint(contestID))
+	if err != nil {
+		if errors.Is(err, service.ErrContestNotFound) {
+			response.NotFound(c, "contest not found")
+			return
+		}
+		response.InternalError(c, "failed to get contest signups")
+		return
+	}
+
+	response.Success(c, signups)
+}
+
+// ==================== DIY Template Management (Admin) ====================
+
+// CreateDIYTemplate creates a new DIY contest template (admin).
+// POST /api/v1/admin/diy-templates
+func (h *AdminHandler) CreateDIYTemplate(c *gin.Context) {
+	var req service.CreateDIYTemplateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "invalid request parameters: "+err.Error())
+		return
+	}
+
+	adminID, exists := c.Get("user_id")
+	if !exists {
+		response.Unauthorized(c, "authentication required")
+		return
+	}
+
+	tmpl, err := h.contestService.CreateDIYTemplate(c.Request.Context(), adminID.(uint), req)
+	if err != nil {
+		response.InternalError(c, "failed to create DIY template")
+		return
+	}
+
+	response.Success(c, tmpl)
+}
+
+// ListDIYTemplates returns all DIY templates (admin).
+// GET /api/v1/admin/diy-templates
+func (h *AdminHandler) ListDIYTemplates(c *gin.Context) {
+	p := pagination.GetPagination(c)
+
+	templates, total, err := h.contestService.ListDIYTemplates(c.Request.Context(), p.Offset(), p.PageSize)
+	if err != nil {
+		response.InternalError(c, "failed to get DIY templates")
+		return
+	}
+
+	response.PaginatedResponse(c, templates, total, p.Page, p.PageSize)
+}
+
+// UpdateDIYTemplate updates a DIY template (admin).
+// PUT /api/v1/admin/diy-templates/:id
+func (h *AdminHandler) UpdateDIYTemplate(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid template id")
+		return
+	}
+
+	var req service.UpdateDIYTemplateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "invalid request parameters: "+err.Error())
+		return
+	}
+
+	tmpl, err := h.contestService.UpdateDIYTemplate(c.Request.Context(), uint(id), req)
+	if err != nil {
+		if errors.Is(err, service.ErrContestNotFound) {
+			response.NotFound(c, "DIY template not found")
+			return
+		}
+		response.InternalError(c, "failed to update DIY template")
+		return
+	}
+
+	response.Success(c, tmpl)
+}
+
+// DeleteDIYTemplate deletes a DIY template (admin).
+// DELETE /api/v1/admin/diy-templates/:id
+func (h *AdminHandler) DeleteDIYTemplate(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid template id")
+		return
+	}
+
+	if err := h.contestService.DeleteDIYTemplate(c.Request.Context(), uint(id)); err != nil {
+		if errors.Is(err, service.ErrContestNotFound) {
+			response.NotFound(c, "DIY template not found")
+			return
+		}
+		response.InternalError(c, "failed to delete DIY template")
+		return
+	}
+
+	response.Success(c, nil)
 }
 
 // ==================== Announcement Management (Admin) ====================
 
 // CreateAnnouncement creates an announcement (admin).
+// POST /api/v1/admin/announcements
 func (h *AdminHandler) CreateAnnouncement(c *gin.Context) {
-	// TODO: implement
-	response.Error(c, 501, "not implemented")
+	var req service.CreateAnnouncementRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "invalid request parameters: "+err.Error())
+		return
+	}
+
+	adminID, exists := c.Get("user_id")
+	if !exists {
+		response.Unauthorized(c, "authentication required")
+		return
+	}
+
+	announcement, err := h.announcementService.CreateAnnouncement(c.Request.Context(), adminID.(uint), req)
+	if err != nil {
+		response.InternalError(c, "failed to create announcement")
+		return
+	}
+
+	response.Success(c, announcement)
+}
+
+// UpdateAnnouncement updates an announcement (admin).
+// PUT /api/v1/admin/announcements/:id
+func (h *AdminHandler) UpdateAnnouncement(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid announcement id")
+		return
+	}
+
+	var req service.UpdateAnnouncementRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "invalid request parameters: "+err.Error())
+		return
+	}
+
+	announcement, err := h.announcementService.UpdateAnnouncement(c.Request.Context(), uint(id), req)
+	if err != nil {
+		if errors.Is(err, service.ErrAnnouncementNotFound) {
+			response.NotFound(c, "announcement not found")
+			return
+		}
+		response.InternalError(c, "failed to update announcement")
+		return
+	}
+
+	response.Success(c, announcement)
+}
+
+// DeleteAnnouncement deletes an announcement (admin).
+// DELETE /api/v1/admin/announcements/:id
+func (h *AdminHandler) DeleteAnnouncement(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		response.BadRequest(c, "invalid announcement id")
+		return
+	}
+
+	if err := h.announcementService.DeleteAnnouncement(c.Request.Context(), uint(id)); err != nil {
+		if errors.Is(err, service.ErrAnnouncementNotFound) {
+			response.NotFound(c, "announcement not found")
+			return
+		}
+		response.InternalError(c, "failed to delete announcement")
+		return
+	}
+
+	response.Success(c, nil)
 }
 
 // ==================== Anti-Cheat (Admin) ====================

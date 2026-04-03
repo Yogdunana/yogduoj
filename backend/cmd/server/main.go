@@ -76,7 +76,7 @@ func main() {
 	authService := service.NewAuthService(userRepo, jwtManager)
 	userService := service.NewUserService(userRepo)
 	teamService := service.NewTeamService(teamRepo, userRepo)
-	contestService := service.NewContestService(contestRepo)
+	contestService := service.NewContestService(contestRepo, submissionRepo)
 	judgeService := service.NewJudgeService()
 	announcementService := service.NewAnnouncementService(announcementRepo)
 	antiCheatService := service.NewAntiCheatService()

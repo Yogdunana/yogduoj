@@ -18,6 +18,7 @@ func NewAnnouncementHandler(announcementService service.AnnouncementService) *An
 }
 
 // ListAnnouncements returns a paginated list of announcements.
+// GET /api/v1/announcements?page=1&page_size=20
 func (h *AnnouncementHandler) ListAnnouncements(c *gin.Context) {
 	p := pagination.GetPagination(c)
 
@@ -31,6 +32,7 @@ func (h *AnnouncementHandler) ListAnnouncements(c *gin.Context) {
 }
 
 // GetAnnouncement returns an announcement by ID.
+// GET /api/v1/announcements/:id
 func (h *AnnouncementHandler) GetAnnouncement(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
@@ -46,22 +48,4 @@ func (h *AnnouncementHandler) GetAnnouncement(c *gin.Context) {
 	}
 
 	response.Success(c, announcement)
-}
-
-// CreateAnnouncement creates a new announcement (admin only).
-func (h *AnnouncementHandler) CreateAnnouncement(c *gin.Context) {
-	// TODO: implement
-	response.Error(c, 501, "not implemented")
-}
-
-// UpdateAnnouncement updates an announcement (admin only).
-func (h *AnnouncementHandler) UpdateAnnouncement(c *gin.Context) {
-	// TODO: implement
-	response.Error(c, 501, "not implemented")
-}
-
-// DeleteAnnouncement deletes an announcement (admin only).
-func (h *AnnouncementHandler) DeleteAnnouncement(c *gin.Context) {
-	// TODO: implement
-	response.Error(c, 501, "not implemented")
 }

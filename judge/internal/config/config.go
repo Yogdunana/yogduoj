@@ -14,6 +14,18 @@ type Config struct {
 	// PoolSize is the number of concurrent judging workers.
 	PoolSize int
 
+	// CallbackURL is the backend URL to POST judge results to.
+	CallbackURL string
+
+	// SandboxRoot is the root directory for sandbox filesystems.
+	SandboxRoot string
+
+	// CompileTimeMultiplier is the multiplier for compilation time limits.
+	CompileTimeMultiplier int
+
+	// CompileMemoryMultiplier is the multiplier for compilation memory limits.
+	CompileMemoryMultiplier int
+
 	// DBHost is the MySQL host address.
 	DBHost string
 
@@ -34,10 +46,14 @@ type Config struct {
 // It provides sensible defaults for development.
 func Load() (*Config, error) {
 	cfg := &Config{
-		GRPCAddr: getEnv("JUDGE_GRPC_ADDR", ":50051"),
-		DBHost:   getEnv("DB_HOST", "localhost"),
-		DBName:   getEnv("DB_NAME", "yogduoj"),
-		DBUser:   getEnv("DB_USER", "root"),
+		GRPCAddr:               getEnv("JUDGE_GRPC_ADDR", ":50051"),
+		CallbackURL:            getEnv("JUDGE_CALLBACK_URL", "http://localhost:8080/api/v1/judge/callback"),
+		SandboxRoot:            getEnv("JUDGE_SANDBOX_ROOT", "/tmp/yogduoj-sandbox"),
+		CompileTimeMultiplier:  2,
+		CompileMemoryMultiplier: 2,
+		DBHost:                 getEnv("DB_HOST", "localhost"),
+		DBName:                 getEnv("DB_NAME", "yogduoj"),
+		DBUser:                 getEnv("DB_USER", "root"),
 	}
 
 	poolSize, err := getEnvInt("JUDGE_POOL_SIZE", 4)
@@ -51,6 +67,18 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid DB_PORT: %w", err)
 	}
 	cfg.DBPort = dbPort
+
+	ctm, err := getEnvInt("JUDGE_COMPILE_TIME_MULT", 2)
+	if err != nil {
+		return nil, fmt.Errorf("invalid JUDGE_COMPILE_TIME_MULT: %w", err)
+	}
+	cfg.CompileTimeMultiplier = ctm
+
+	cmm, err := getEnvInt("JUDGE_COMPILE_MEM_MULT", 2)
+	if err != nil {
+		return nil, fmt.Errorf("invalid JUDGE_COMPILE_MEM_MULT: %w", err)
+	}
+	cfg.CompileMemoryMultiplier = cmm
 
 	cfg.DBPassword = os.Getenv("DB_PASSWORD")
 
