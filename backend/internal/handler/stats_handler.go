@@ -2,7 +2,6 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/Yogdunana/yogduoj/backend/internal/model"
 	"gorm.io/gorm"
 )
 
@@ -15,17 +14,13 @@ func NewStatsHandler(db *gorm.DB) *StatsHandler {
 }
 
 func (h *StatsHandler) GetStats(c *gin.Context) {
-	var userCount int64
-	var problemCount int64
-	var submissionCount int64
-	var contestCount int64
-	var acceptedSubmissionCount int64
+	var userCount, problemCount, submissionCount, contestCount, acceptedCount int64
 
-	h.db.Model(&model.User{}).Count(&userCount)
-	h.db.Model(&model.Problem{}).Where("status = ?", "public").Count(&problemCount)
-	h.db.Model(&model.Submission{}).Count(&submissionCount)
-	h.db.Model(&model.Contest{}).Count(&contestCount)
-	h.db.Model(&model.Submission{}).Where("judge_result = ?", "AC").Count(&acceptedSubmissionCount)
+	h.db.Raw("SELECT COUNT(*) FROM users").Scan(&userCount)
+	h.db.Raw("SELECT COUNT(*) FROM problems WHERE status = ?", "public").Scan(&problemCount)
+	h.db.Raw("SELECT COUNT(*) FROM submissions").Scan(&submissionCount)
+	h.db.Raw("SELECT COUNT(*) FROM contests").Scan(&contestCount)
+	h.db.Raw("SELECT COUNT(*) FROM submissions WHERE judge_result = ?", "AC").Scan(&acceptedCount)
 
 	c.JSON(200, gin.H{
 		"code":    0,
@@ -35,7 +30,7 @@ func (h *StatsHandler) GetStats(c *gin.Context) {
 			"total_problems":       problemCount,
 			"total_submissions":    submissionCount,
 			"total_contests":       contestCount,
-			"accepted_submissions": acceptedSubmissionCount,
+			"accepted_submissions": acceptedCount,
 		},
 	})
 }

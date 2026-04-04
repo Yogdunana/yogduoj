@@ -408,12 +408,6 @@ jobs:
             curl -sf http://localhost:23197/ -o /dev/null -w "Frontend: HTTP %{http_code}\n" || echo "Frontend: FAILED"
             curl -sf -H "Host: oj.yogdunana.com" https://localhost/ -o /dev/null -w "Via host nginx: HTTP %{http_code}\n" --insecure || echo "Host nginx: FAILED"
 
-            echo "=== Backend Seed Logs ==="
-            docker logs yogduoj-backend 2>&1 | grep -E "(Seed|Error|FATAL)" | head -10
-
-            echo "=== DB Counts ==="
-            docker exec yogduoj-mysql mysql -uroot -pYogduOJ2026Secure! yogduoj -e "SELECT 'submissions' as t, COUNT(*) as c FROM submissions;" 2>&1
-
             echo "=== Container Status ==="
             docker compose ps
 
