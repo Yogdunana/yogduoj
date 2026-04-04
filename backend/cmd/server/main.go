@@ -199,7 +199,8 @@ func initLogger(cfg *config.Config) *zap.Logger {
 
 func initDatabase(cfg *config.Config) (*gorm.DB, error) {
 	db, err := gorm.Open(mysql.Open(cfg.Database.DSN()), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger:                                   logger.Default.LogMode(logger.Info),
+		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)

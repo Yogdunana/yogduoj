@@ -220,6 +220,15 @@ jobs:
             echo "=== Starting services ==="
             docker compose up -d
 
+            # Fix FK constraints before backend starts
+            sleep 5
+            docker exec yogduoj-mysql mysql -uroot -pYogduOJ2026Secure! yogduoj -e "
+              SET FOREIGN_KEY_CHECKS=0;
+              ALTER TABLE submissions DROP FOREIGN KEY IF EXISTS fk_submissions_team;
+              ALTER TABLE submissions DROP FOREIGN KEY IF EXISTS fk_submissions_contest;
+              SET FOREIGN_KEY_CHECKS=1;
+            " 2>/dev/null || true
+
             # Wait for backend to be ready
             echo "=== Waiting for services ==="
             sleep 15
