@@ -2,11 +2,11 @@ import api from './index'
 import type { ApiResponse } from '@/types'
 
 export interface PlatformStats {
-  total_users: number
-  total_problems: number
-  total_submissions: number
-  total_contests: number
-  accepted_submissions: number
+  totalUsers: number
+  totalProblems: number
+  totalSubmissions: number
+  totalContests: number
+  acceptedSubmissions: number
 }
 
 export function getStats() {

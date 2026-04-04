@@ -122,9 +122,9 @@ async function fetchData() {
       listAnnouncements({ page: 1, pageSize: 5 }),
     ])
     const statsData = statsRes.data.data
-    usersCounter.setTarget(statsData.total_users || 0)
-    problemsCounter.setTarget(statsData.total_problems || 0)
-    submissionsCounter.setTarget(statsData.total_submissions || 0)
+    usersCounter.setTarget(statsData.totalUsers || 0)
+    problemsCounter.setTarget(statsData.totalProblems || 0)
+    submissionsCounter.setTarget(statsData.totalSubmissions || 0)
     contests.value = contestRes.data.data.list || []
     announcements.value = announcementRes.data.data.list || []
   } catch {
