@@ -1,0 +1,19 @@
+name: Debug Backend
+on:
+  workflow_dispatch:
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check backend crash
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 101.237.129.33
+          port: 23196
+          username: root
+          password: ${{ secrets.SERVER_PASSWORD }}
+          command_timeout: 3m
+          script: |
+            docker logs yogduoj-backend --tail 30 2>&1
