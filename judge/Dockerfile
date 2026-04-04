@@ -32,11 +32,8 @@ WORKDIR /app
 # Copy binary from builder
 COPY --from=builder /judge /app/judge
 
-# Copy config if present
-COPY --from=builder /src/configs ./configs
-
 # Create data directories
-RUN mkdir -p /data/submissions /data/problems
+RUN mkdir -p /data/submissions /data/problems /data/rootfs
 
 EXPOSE 50051
 
