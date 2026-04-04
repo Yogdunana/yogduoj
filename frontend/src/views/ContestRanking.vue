@@ -209,7 +209,7 @@ async function fetchRankings() {
   loading.value = true
   try {
     const res = await getContestRanking(Number(props.id))
-    rankings.value = res.data.data?.items || []
+    rankings.value = res.data.data?.list || []
   } catch {
     // ignore
   } finally {

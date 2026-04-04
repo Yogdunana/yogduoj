@@ -162,7 +162,7 @@ async function fetchUsers() {
     if (filters.status) params.status = filters.status
 
     const res = await adminGetUsers(params)
-    users.value = res.data.data.items
+    users.value = res.data.data.list
     total.value = res.data.data.total
   } catch (e: any) {
     message.error(e.message || t('errors.networkError'))

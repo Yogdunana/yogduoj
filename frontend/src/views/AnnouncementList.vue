@@ -41,7 +41,7 @@ async function fetchAnnouncements() {
 
     const res = await listAnnouncements(params)
     const data = res.data.data
-    announcements.value = data.items
+    announcements.value = data.list
     total.value = data.total
   } catch (e: any) {
     message.error(e.message || t('errors.networkError'))

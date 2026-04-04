@@ -200,7 +200,7 @@ async function fetchProblems() {
     if (filters.status) params.status = filters.status
 
     const res = await adminGetProblems(params)
-    problems.value = res.data.data.items
+    problems.value = res.data.data.list
     total.value = res.data.data.total
   } catch (e: any) {
     message.error(e.message || t('errors.networkError'))

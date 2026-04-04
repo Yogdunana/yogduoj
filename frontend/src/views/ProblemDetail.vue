@@ -228,7 +228,7 @@ async function fetchSubmissions() {
       page: 1,
       pageSize: 10,
     })
-    submissions.value = res.data.data.items
+    submissions.value = res.data.data.list
   } catch {
     // silent
   }

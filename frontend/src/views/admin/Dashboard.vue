@@ -178,12 +178,12 @@ async function fetchDashboard() {
     if (submissionsRes.status === 'fulfilled') {
       const subData = submissionsRes.value.data.data
       stats.value.totalSubmissions = subData?.total || 0
-      recentSubmissions.value = subData?.items || []
+      recentSubmissions.value = subData?.list || []
     }
     if (contestsRes.status === 'fulfilled') {
       const contestData = contestsRes.value.data.data
       stats.value.totalContests = contestData?.total || 0
-      recentContests.value = contestData?.items || []
+      recentContests.value = contestData?.list || []
     }
 
     try {

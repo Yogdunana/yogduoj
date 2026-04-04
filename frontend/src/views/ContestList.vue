@@ -113,7 +113,7 @@ async function fetchContests() {
 
     const res = await listContests(params)
     const data = res.data.data
-    contests.value = data.items
+    contests.value = data.list
     total.value = data.total
   } catch (e: any) {
     message.error(e.message || t('errors.networkError'))

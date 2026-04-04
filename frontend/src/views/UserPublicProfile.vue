@@ -175,7 +175,7 @@ async function fetchSubmissions() {
   submissionsLoading.value = true
   try {
     const res = await getUserSubmissions({ userId: Number(props.id), page: 1, pageSize: 20 })
-    submissions.value = res.data.data.items
+    submissions.value = res.data.data.list
     submissionTotal.value = res.data.data.total
   } catch {
     // ignore
@@ -188,7 +188,7 @@ async function fetchContests() {
   contestsLoading.value = true
   try {
     const res = await getUserContests({ userId: Number(props.id), page: 1, pageSize: 20 })
-    contests.value = res.data.data.items
+    contests.value = res.data.data.list
     contestTotal.value = res.data.data.total
   } catch {
     // ignore

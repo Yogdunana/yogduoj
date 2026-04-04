@@ -67,7 +67,7 @@ const isDIY = computed(() => form.ruleType === 'diy')
 async function fetchProblems() {
   try {
     const res = await listProblems({ page: 1, pageSize: 500 })
-    allProblems.value = res.data.data.items
+    allProblems.value = res.data.data.list
   } catch {
     // ignore
   }

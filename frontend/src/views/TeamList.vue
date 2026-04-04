@@ -69,7 +69,7 @@ async function fetchTeams() {
   loading.value = true
   try {
     const res = await getTeamList({ page: page.value, pageSize: pageSize.value, keyword: keyword.value || undefined })
-    teams.value = res.data.data.items
+    teams.value = res.data.data.list
     total.value = res.data.data.total
   } catch {
     // ignore

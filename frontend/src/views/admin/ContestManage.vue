@@ -162,7 +162,7 @@ async function fetchContests() {
     if (filters.ruleType) params.ruleType = filters.ruleType
 
     const res = await adminGetContests(params)
-    contests.value = res.data.data.items
+    contests.value = res.data.data.list
     total.value = res.data.data.total
   } catch (e: any) {
     message.error(e.message || t('errors.networkError'))

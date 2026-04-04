@@ -115,7 +115,7 @@ async function fetchMembers() {
   membersLoading.value = true
   try {
     const res = await getTeamMembers(Number(props.id), { page: 1, pageSize: 100 })
-    members.value = res.data.data.items
+    members.value = res.data.data.list
   } catch {
     // ignore
   } finally {

@@ -101,7 +101,7 @@ async function fetchAnnouncements() {
   loading.value = true
   try {
     const res = await adminGetAnnouncements({ page: filters.page, pageSize: filters.pageSize })
-    announcements.value = res.data.data.items
+    announcements.value = res.data.data.list
     total.value = res.data.data.total
   } catch (e: any) {
     message.error(e.message || t('errors.networkError'))

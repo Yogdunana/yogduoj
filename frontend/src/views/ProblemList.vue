@@ -174,12 +174,12 @@ async function fetchProblems() {
 
     const res = await listProblems(params)
     const data = res.data.data
-    problems.value = data.items
+    problems.value = data.list
     total.value = data.total
 
     // Collect unique tags
     const tagSet = new Set<string>()
-    data.items.forEach(p => p.tags?.forEach(tag => tagSet.add(tag)))
+    data.list.forEach(p => p.tags?.forEach(tag => tagSet.add(tag)))
     allTags.value = Array.from(tagSet).sort()
   } catch (e: any) {
     message.error(e.message || t('errors.networkError'))

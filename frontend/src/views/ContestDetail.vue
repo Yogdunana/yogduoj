@@ -124,7 +124,7 @@ async function fetchProblems() {
 async function fetchRankings() {
   try {
     const res = await getContestRanking(Number(props.id))
-    rankings.value = res.data.data?.items || []
+    rankings.value = res.data.data?.list || []
   } catch {
     // ranking may not be available
   }

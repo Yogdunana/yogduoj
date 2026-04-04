@@ -183,7 +183,7 @@ async function fetchSubmissions() {
     if (filters.language) params.language = filters.language
 
     const res = await adminGetSubmissions(params)
-    submissions.value = res.data.data.items
+    submissions.value = res.data.data.list
     total.value = res.data.data.total
   } catch (e: any) {
     message.error(e.message || t('errors.networkError'))

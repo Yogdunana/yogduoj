@@ -155,7 +155,7 @@ async function fetchProblems() {
     }
     const res = await listProblems(params)
     const data = res.data.data
-    problems.value = data.items
+    problems.value = data.list
     total.value = data.total
   } catch (e: any) {
     message.error(e.message || t('errors.networkError'))

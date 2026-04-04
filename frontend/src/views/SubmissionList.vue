@@ -176,7 +176,7 @@ async function fetchSubmissions() {
 
     const res = await listSubmissions(params)
     const data = res.data.data
-    submissions.value = data.items
+    submissions.value = data.list
     total.value = data.total
   } catch (e: any) {
     message.error(e.message || t('errors.networkError'))
