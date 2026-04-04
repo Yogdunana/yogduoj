@@ -1,15 +1,6 @@
 name: Fix Other Sites
 on:
   workflow_dispatch:
-    inputs:
-      action:
-        description: 'Action to perform'
-        required: true
-        default: 'investigate'
-        type: choice
-        options:
-          - investigate
-          - fix
 
 jobs:
   fix:
@@ -17,7 +8,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Investigate and fix other sites
+      - name: Restore other sites
         uses: appleboy/ssh-action@v1
         with:
           host: 101.237.129.33
@@ -27,62 +18,51 @@ jobs:
           command_timeout: 15m
           script: |
             echo "=========================================="
-            echo "=== INVESTIGATING ALL SITES ==="
+            echo "=== DETAILED INVESTIGATION ==="
             echo "=========================================="
 
-            # 1. Check nginx status
-            echo "=== Nginx Status ==="
-            systemctl status nginx 2>/dev/null | head -10 || echo "systemctl not available"
-            echo "---"
-            ss -tlnp | grep -E ':(80|443)\b' || echo "Nothing on 80/443"
+            # 1. Check for docker-compose files for other sites
+            echo "=== Docker Compose Files ==="
+            find /opt -name "docker-compose.yml" -o -name "docker-compose.yaml" 2>/dev/null
+            find /root -name "docker-compose.yml" -o -name "docker-compose.yaml" 2>/dev/null
+            find /home -name "docker-compose.yml" -o -name "docker-compose.yaml" 2>/dev/null
 
-            # 2. List all sites-enabled
-            echo "=== Sites Enabled ==="
-            ls -la /etc/nginx/sites-enabled/ 2>/dev/null || echo "No sites-enabled"
+            # 2. Check ALL docker containers (including stopped ones)
+            echo "=== All Docker Containers (including stopped) ==="
+            docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}" 2>/dev/null
 
-            # 3. List all sites-available
-            echo "=== Sites Available ==="
-            ls -la /etc/nginx/sites-available/ 2>/dev/null || echo "No sites-available"
+            # 3. Check systemd services related to web apps
+            echo "=== Systemd Web Services ==="
+            systemctl list-units --type=service --state=running 2>/dev/null | grep -iE '(cap|calorie|referral|maixuan|node|python|gunicorn|uvicorn|flask|django|next|nuxt|vite)' || echo "No matching systemd services"
 
-            # 4. Show all site configs
-            echo "=== All Site Configs ==="
-            for f in /etc/nginx/sites-enabled/*; do
-              if [ -L "$f" ]; then
-                target=$(readlink -f "$f")
-                echo "--- $f -> $target ---"
-                cat "$target" 2>/dev/null || echo "(empty)"
-                echo ""
-              elif [ -f "$f" ]; then
-                echo "--- $f ---"
-                cat "$f" 2>/dev/null || echo "(empty)"
-                echo ""
-              fi
+            # 4. Check for PM2 processes
+            echo "=== PM2 Processes ==="
+            pm2 list 2>/dev/null || echo "PM2 not installed"
+
+            # 5. Check what's supposed to be on ports 3001, 3002, 8000
+            echo "=== Port Status ==="
+            for port in 3001 3002 8000; do
+              echo "Port $port:"
+              ss -tlnp "sport = :${port}" 2>/dev/null || echo "  (nothing listening)"
             done
 
-            # 5. Check nginx config test
-            echo "=== Nginx Config Test ==="
-            nginx -t 2>&1
+            # 6. Check for screen/tmux sessions
+            echo "=== Screen/Tmux Sessions ==="
+            screen -ls 2>/dev/null || echo "No screen sessions"
+            tmux list-sessions 2>/dev/null || echo "No tmux sessions"
 
-            # 6. Check Docker containers
-            echo "=== Docker Containers ==="
-            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null
+            # 7. Check /opt directories for other projects
+            echo "=== /opt Contents ==="
+            ls -la /opt/ 2>/dev/null
 
-            # 7. Test each known site
-            echo "=== Site Accessibility Test ==="
-            for domain in oj.yogdunana.com cap.yogdunana.com yogdunana.com; do
-              code=$(curl -sf -o /dev/null -w "%{http_code}" "https://${domain}/" --insecure 2>/dev/null || echo "FAIL")
-              echo "${domain}: HTTP ${code}"
-            done
+            # 8. Check for any process that was running before (journalctl)
+            echo "=== Recent Docker Events ==="
+            journalctl -u docker --since "6 hours ago" --no-pager 2>/dev/null | grep -E "(cap|calorie|referral|maixuan|die|kill|stop|start)" | tail -20 || echo "No journalctl access"
 
-            # 8. Check for broken symlinks
-            echo "=== Broken Symlinks ==="
-            find /etc/nginx/sites-enabled/ -type l ! -exec test -e {} \; -print 2>/dev/null || echo "No broken symlinks"
+            # 9. Check docker images for other sites
+            echo "=== Docker Images (non-yogduoj) ==="
+            docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.CreatedAt}}" 2>/dev/null | grep -v yogduoj | head -20
 
-            # 9. Check nginx error log
-            echo "=== Recent Nginx Errors ==="
-            tail -20 /var/log/nginx/error.log 2>/dev/null || echo "No error log"
-
-            # 10. Check certbot certificates
-            echo "=== SSL Certificates ==="
-            certbot certificates 2>/dev/null || echo "certbot not available"
-            ls -la /etc/letsencrypt/live/ 2>/dev/null || echo "No letsencrypt dir"
+            # 10. Check for supervisord
+            echo "=== Supervisor ==="
+            supervisorctl status 2>/dev/null || echo "No supervisord"
