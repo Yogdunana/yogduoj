@@ -10,5 +10,5 @@ export interface PlatformStats {
 }
 
 export function getStats() {
-  return api.get<ApiResponse<PlatformStats>>('/stats')
+  return api.get<ApiResponse<PlatformStats>>('/v1/stats')
 }
