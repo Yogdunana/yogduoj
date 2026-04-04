@@ -2,6 +2,7 @@ package migration
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/Yogdunana/yogduoj/backend/internal/model"
@@ -11,6 +12,7 @@ import (
 
 // SeedData populates the database with initial seed data for development/demo.
 func SeedData(db *gorm.DB) error {
+	log.Println("[Seed] Starting seed data population...")
 	// --- Tags ---
 	tags := []model.Tag{
 		{Name: "数组"}, {Name: "字符串"}, {Name: "动态规划"}, {Name: "贪心"},
@@ -20,8 +22,12 @@ func SeedData(db *gorm.DB) error {
 		{Name: "数论"}, {Name: "位运算"},
 	}
 	for i := range tags {
-		db.FirstOrCreate(&tags[i], model.Tag{Name: tags[i].Name})
+		if err := db.FirstOrCreate(&tags[i], model.Tag{Name: tags[i].Name}).Error; err != nil {
+			log.Printf("[Seed] Error creating tag %s: %v", tags[i].Name, err)
+			return err
+		}
 	}
+	log.Printf("[Seed] Created %d tags", len(tags))
 
 	// --- Users ---
 	adminPassHash, _ := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
@@ -81,8 +87,12 @@ func SeedData(db *gorm.DB) error {
 		},
 	}
 	for i := range users {
-		db.FirstOrCreate(&users[i], model.User{Username: users[i].Username})
+		if err := db.FirstOrCreate(&users[i], model.User{Username: users[i].Username}).Error; err != nil {
+			log.Printf("[Seed] Error creating user %s: %v", users[i].Username, err)
+			return err
+		}
 	}
+	log.Printf("[Seed] Created %d users", len(users))
 
 	// Helper: get tag by name
 	tagMap := make(map[string]model.Tag)
@@ -326,8 +336,12 @@ func SeedData(db *gorm.DB) error {
 	}
 
 	for i := range problems {
-		db.FirstOrCreate(&problems[i], model.Problem{Title: problems[i].Title})
+		if err := db.FirstOrCreate(&problems[i], model.Problem{Title: problems[i].Title}).Error; err != nil {
+			log.Printf("[Seed] Error creating problem '%s': %v", problems[i].Title, err)
+			return err
+		}
 	}
+	log.Printf("[Seed] Created %d problems", len(problems))
 
 	// --- Problem-Tag associations ---
 	problemTags := []struct {
@@ -607,8 +621,12 @@ print(a + b)`,
 	}
 
 	for i := range contests {
-		db.FirstOrCreate(&contests[i], model.Contest{Title: contests[i].Title})
+		if err := db.FirstOrCreate(&contests[i], model.Contest{Title: contests[i].Title}).Error; err != nil {
+			log.Printf("[Seed] Error creating contest '%s': %v", contests[i].Title, err)
+			return err
+		}
 	}
+	log.Printf("[Seed] Created %d contests", len(contests))
 
 	// --- Contest Problems ---
 	contestProblems := []model.ContestProblem{
