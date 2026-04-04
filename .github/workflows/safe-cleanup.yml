@@ -1,0 +1,43 @@
+name: Safe Cleanup
+on:
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Safe cleanup without kernel removal
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 101.237.129.33
+          port: 23196
+          username: root
+          password: ${{ secrets.SERVER_PASSWORD }}
+          command_timeout: 5m
+          script: |
+            echo "=== Before ==="
+            df -h /
+
+            echo "=== /opt contents ==="
+            du -sh /opt/* 2>/dev/null | sort -rh | head -10
+
+            echo "=== Removing /opt contents (except yogduoj) ==="
+            ls /opt/ 2>/dev/null | grep -v yogduoj | while read dir; do
+              echo "Removing /opt/$dir"
+              rm -rf "/opt/$dir"
+            done
+
+            echo "=== Docker cleanup ==="
+            docker system prune -a -f 2>/dev/null || true
+            docker volume prune -f 2>/dev/null || true
+
+            echo "=== APT cleanup ==="
+            apt-get clean 2>/dev/null
+            rm -rf /var/lib/apt/lists/*
+
+            echo "=== Log cleanup ==="
+            journalctl --vacuum-time=1d 2>/dev/null
+            rm -rf /tmp/* /var/tmp/* 2>/dev/null
+
+            echo "=== After ==="
+            df -h /
