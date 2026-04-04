@@ -25,9 +25,9 @@ type Submission struct {
 	JudgeEnd      *time.Time `json:"judge_end"`
 
 	User    User    `gorm:"foreignKey:UserID" json:"user,omitempty"`
-	Team    Team    `gorm:"foreignKey:TeamID" json:"team,omitempty"`
+	Team    Team    `gorm:"foreignKey:TeamID;constraint:Ignore" json:"team,omitempty"`
 	Problem Problem `gorm:"foreignKey:ProblemID" json:"problem,omitempty"`
-	Contest Contest `gorm:"foreignKey:ContestID" json:"contest,omitempty"`
+	Contest Contest `gorm:"foreignKey:ContestID;constraint:Ignore" json:"contest,omitempty"`
 }
 
 // UserProblemStatus represents a user's submission status for a specific problem.
