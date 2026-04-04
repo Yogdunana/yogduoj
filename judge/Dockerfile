@@ -1,6 +1,9 @@
 # ---- Build stage ----
 FROM golang:1.22-alpine AS builder
 
+# Use Chinese mirror for Alpine packages
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+
 RUN apk add --no-cache git ca-certificates
 
 # Use Chinese Go proxy for faster downloads in China
@@ -21,6 +24,9 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 
 # ---- Runtime stage ----
 FROM alpine:3.19
+
+# Use Chinese mirror for Alpine packages
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
 RUN apk add --no-cache \
     ca-certificates \

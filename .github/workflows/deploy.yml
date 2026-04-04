@@ -16,7 +16,7 @@ jobs:
           port: 23196
           username: root
           password: ${{ secrets.SERVER_PASSWORD }}
-          command_timeout: 30m
+          command_timeout: 45m
           script: |
             set -e
 
