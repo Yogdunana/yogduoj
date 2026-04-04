@@ -1,0 +1,22 @@
+name: Debug Submissions
+on:
+  workflow_dispatch:
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check submissions
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 101.237.129.33
+          port: 23196
+          username: root
+          password: ${{ secrets.SERVER_PASSWORD }}
+          command_timeout: 3m
+          script: |
+            echo "=== DB Counts ==="
+            docker exec yogduoj-mysql mysql -uroot -pYogduOJ2026Secure! yogduoj -e "SELECT 'submissions' as t, COUNT(*) as c FROM submissions; SELECT 'users' as t, COUNT(*) as c FROM users; DESCRIBE submissions;" 2>&1
+            echo "=== Seed Logs ==="
+            docker logs yogduoj-backend 2>&1 | grep -E "(Seed|submissions|Error)" | head -10
