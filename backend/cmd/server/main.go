@@ -56,10 +56,10 @@ func main() {
 	zapLogger.Info("Database connected successfully")
 
 	// Run migrations
-	if err := migration.AutoMigrate(db); err != nil {
+	if err := migration.Migrate(db); err != nil {
 		zapLogger.Fatal("Failed to run migrations", zap.Error(err))
 	}
-	zapLogger.Info("Database migrations completed")
+	zapLogger.Info("Database migrations and seeding completed")
 
 	// Initialize JWT manager
 	jwtManager := jwt.NewJWTManager(cfg.JWT.Secret, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)
