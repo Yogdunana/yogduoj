@@ -336,6 +336,9 @@ func SeedData(db *gorm.DB) error {
 	}
 
 	for i := range problems {
+		if problems[i].Attachments == "" {
+			problems[i].Attachments = "[]"
+		}
 		if err := db.FirstOrCreate(&problems[i], model.Problem{Title: problems[i].Title}).Error; err != nil {
 			log.Printf("[Seed] Error creating problem '%s': %v", problems[i].Title, err)
 			return err
@@ -558,6 +561,9 @@ print(a + b)`,
 	}
 
 	for i := range submissions {
+		if submissions[i].JudgeDetail == "" {
+			submissions[i].JudgeDetail = "[]"
+		}
 		db.FirstOrCreate(&submissions[i], model.Submission{
 			UserID:    submissions[i].UserID,
 			ProblemID: submissions[i].ProblemID,
@@ -621,6 +627,9 @@ print(a + b)`,
 	}
 
 	for i := range contests {
+		if contests[i].DIYRules == "" {
+			contests[i].DIYRules = "{}"
+		}
 		if err := db.FirstOrCreate(&contests[i], model.Contest{Title: contests[i].Title}).Error; err != nil {
 			log.Printf("[Seed] Error creating contest '%s': %v", contests[i].Title, err)
 			return err
@@ -787,6 +796,9 @@ print(a + b)`,
 	}
 
 	for i := range teamMembers {
+		if teamMembers[i].Permission == "" {
+			teamMembers[i].Permission = "{}"
+		}
 		db.FirstOrCreate(&teamMembers[i], model.TeamMember{
 			TeamID: teamMembers[i].TeamID,
 			UserID: teamMembers[i].UserID,
