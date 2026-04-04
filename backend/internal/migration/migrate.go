@@ -10,6 +10,10 @@ func Migrate(db *gorm.DB) error {
 	if err := AutoMigrate(db); err != nil {
 		return err
 	}
+	// Remove foreign key constraints that cause issues with zero-value IDs
+	// (GORM creates FK constraints for uint fields, but 0 is a valid Go zero value)
+	db.Exec("ALTER TABLE submissions DROP FOREIGN KEY IF EXISTS fk_submissions_team")
+	db.Exec("ALTER TABLE submissions DROP FOREIGN KEY IF EXISTS fk_submissions_contest")
 	return SeedData(db)
 }
 
