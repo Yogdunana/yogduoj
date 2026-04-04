@@ -7,16 +7,17 @@ import (
 )
 
 type Router struct {
-	engine          *gin.Engine
-	authMiddleware   *middleware.AuthMiddleware
-	authHandler      *handler.AuthHandler
-	userHandler      *handler.UserHandler
-	teamHandler      *handler.TeamHandler
-	problemHandler   *handler.ProblemHandler
+	engine            *gin.Engine
+	authMiddleware    *middleware.AuthMiddleware
+	authHandler       *handler.AuthHandler
+	userHandler       *handler.UserHandler
+	teamHandler       *handler.TeamHandler
+	problemHandler    *handler.ProblemHandler
 	submissionHandler *handler.SubmissionHandler
-	contestHandler   *handler.ContestHandler
+	contestHandler    *handler.ContestHandler
 	announcementHandler *handler.AnnouncementHandler
-	adminHandler     *handler.AdminHandler
+	adminHandler       *handler.AdminHandler
+	statsHandler       *handler.StatsHandler
 }
 
 func NewRouter(
@@ -30,6 +31,7 @@ func NewRouter(
 	contestHandler *handler.ContestHandler,
 	announcementHandler *handler.AnnouncementHandler,
 	adminHandler *handler.AdminHandler,
+	statsHandler *handler.StatsHandler,
 ) *Router {
 	return &Router{
 		engine:            engine,
@@ -42,6 +44,7 @@ func NewRouter(
 		contestHandler:    contestHandler,
 		announcementHandler: announcementHandler,
 		adminHandler:      adminHandler,
+		statsHandler:      statsHandler,
 	}
 }
 
@@ -55,6 +58,9 @@ func (r *Router) Setup() {
 			"service": "yogduoj-backend",
 		})
 	})
+
+	// Stats (public)
+	api.GET("/stats", r.statsHandler.GetStats)
 
 	// Auth routes (public)
 	auth := api.Group("/auth")

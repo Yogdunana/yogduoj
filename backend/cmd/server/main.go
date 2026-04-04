@@ -111,6 +111,7 @@ func main() {
 		importService,
 		systemService,
 	)
+	statsHandler := handler.NewStatsHandler(db)
 
 	// Initialize middleware
 	authMiddleware := middleware.NewAuthMiddleware(jwtManager)
@@ -137,6 +138,7 @@ func main() {
 		contestHandler,
 		announcementHandler,
 		adminHandler,
+		statsHandler,
 	)
 	r.Setup()
 

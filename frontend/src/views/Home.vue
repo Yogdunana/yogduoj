@@ -22,31 +22,34 @@ import {
 } from '@vicons/ionicons5'
 import { listContests } from '@/api/contest'
 import { listAnnouncements } from '@/api/announcement'
+import { getStats } from '@/api/stats'
 import type { Contest, Announcement } from '@/types'
 
 const { t } = useI18n()
 const router = useRouter()
 
 // Animated counter logic
-function useAnimatedCounter(target: number, duration = 2000) {
+function useAnimatedCounter() {
   const current = ref(0)
+  let target = 0
   let animationFrame: number | null = null
   let startTime: number | null = null
 
+  function setTarget(newTarget: number) {
+    target = newTarget
+    startTime = null
+    if (animationFrame) cancelAnimationFrame(animationFrame)
+    animationFrame = requestAnimationFrame(animate)
+  }
+
   function animate(timestamp: number) {
     if (!startTime) startTime = timestamp
-    const progress = Math.min((timestamp - startTime) / duration, 1)
+    const progress = Math.min((timestamp - startTime) / 2000, 1)
     const eased = 1 - Math.pow(1 - progress, 3) // ease-out cubic
     current.value = Math.floor(eased * target)
     if (progress < 1) {
       animationFrame = requestAnimationFrame(animate)
     }
-  }
-
-  function start() {
-    current.value = 0
-    startTime = null
-    animationFrame = requestAnimationFrame(animate)
   }
 
   function stop() {
@@ -56,12 +59,12 @@ function useAnimatedCounter(target: number, duration = 2000) {
     }
   }
 
-  return { current, start, stop }
+  return { current, setTarget, stop }
 }
 
-const usersCounter = useAnimatedCounter(1234)
-const problemsCounter = useAnimatedCounter(256)
-const submissionsCounter = useAnimatedCounter(45678)
+const usersCounter = useAnimatedCounter()
+const problemsCounter = useAnimatedCounter()
+const submissionsCounter = useAnimatedCounter()
 
 const stats = computed(() => [
   {
@@ -113,10 +116,15 @@ function formatShortDate(dateStr: string): string {
 
 async function fetchData() {
   try {
-    const [contestRes, announcementRes] = await Promise.all([
+    const [statsRes, contestRes, announcementRes] = await Promise.all([
+      getStats(),
       listContests({ page: 1, pageSize: 10 }),
       listAnnouncements({ page: 1, pageSize: 5 }),
     ])
+    const statsData = statsRes.data.data
+    usersCounter.setTarget(statsData.total_users || 0)
+    problemsCounter.setTarget(statsData.total_problems || 0)
+    submissionsCounter.setTarget(statsData.total_submissions || 0)
     contests.value = contestRes.data.data.items
     announcements.value = announcementRes.data.data.items
   } catch {
@@ -134,12 +142,6 @@ function goToAnnouncement(id: number) {
 
 onMounted(() => {
   fetchData()
-  // Start counter animations after a short delay
-  setTimeout(() => {
-    usersCounter.start()
-    problemsCounter.start()
-    submissionsCounter.start()
-  }, 300)
 })
 
 onUnmounted(() => {
