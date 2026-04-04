@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check submissions
+      - name: Test submission insert
         uses: appleboy/ssh-action@v1
         with:
           host: 101.237.129.33
@@ -16,7 +16,7 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           command_timeout: 3m
           script: |
-            echo "=== DB Counts ==="
-            docker exec yogduoj-mysql mysql -uroot -pYogduOJ2026Secure! yogduoj -e "SELECT 'submissions' as t, COUNT(*) as c FROM submissions; SELECT 'users' as t, COUNT(*) as c FROM users; DESCRIBE submissions;" 2>&1
-            echo "=== Seed Logs ==="
-            docker logs yogduoj-backend 2>&1 | grep -E "(Seed|submissions|Error)" | head -10
+            echo "=== Test insert ==="
+            docker exec yogduoj-mysql mysql -uroot -pYogduOJ2026Secure! yogduoj -e "INSERT INTO submissions (user_id, problem_id, language, code_path, code_length, judge_result, judge_detail, submit_time) VALUES (1, 1, 'cpp', '/test/1.cpp', 100, 'AC', '[]', NOW()); SELECT COUNT(*) as cnt FROM submissions;" 2>&1
+            echo "=== Full seed logs ==="
+            docker logs yogduoj-backend 2>&1 | grep -i "seed" | head -20
