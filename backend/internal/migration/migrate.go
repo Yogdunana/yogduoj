@@ -1,6 +1,8 @@
 package migration
 
 import (
+	"log"
+
 	"github.com/Yogdunana/yogduoj/backend/internal/model"
 	"gorm.io/gorm"
 )
@@ -12,8 +14,12 @@ func Migrate(db *gorm.DB) error {
 	}
 	// Remove foreign key constraints that cause issues with zero-value IDs
 	// (GORM creates FK constraints for uint fields, but 0 is a valid Go zero value)
-	db.Exec("ALTER TABLE submissions DROP FOREIGN KEY IF EXISTS fk_submissions_team")
-	db.Exec("ALTER TABLE submissions DROP FOREIGN KEY IF EXISTS fk_submissions_contest")
+	if result := db.Exec("ALTER TABLE submissions DROP FOREIGN KEY fk_submissions_team"); result.Error != nil {
+		log.Printf("[Migrate] Warning: could not drop fk_submissions_team: %v", result.Error)
+	}
+	if result := db.Exec("ALTER TABLE submissions DROP FOREIGN KEY fk_submissions_contest"); result.Error != nil {
+		log.Printf("[Migrate] Warning: could not drop fk_submissions_contest: %v", result.Error)
+	}
 	return SeedData(db)
 }
 
