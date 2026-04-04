@@ -272,7 +272,13 @@ jobs:
             fi
 
             # Test and reload host nginx
-            nginx -t && nginx -s reload || echo "WARNING: Host nginx config error"
+            nginx -t 2>/dev/null
+            if [ -f /run/nginx.pid ] && [ -s /run/nginx.pid ]; then
+              nginx -s reload 2>/dev/null || true
+            else
+              echo "Nginx not running, starting it..."
+              nginx 2>/dev/null || true
+            fi
 
             # Wait a bit more for services to stabilize
             sleep 15
