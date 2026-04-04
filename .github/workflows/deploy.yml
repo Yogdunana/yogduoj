@@ -184,29 +184,28 @@ jobs:
             }
             NGINX_EOF
 
-            # Kill any process using our ports (Docker containers or host processes)
-            echo "=== Stopping conflicting containers/processes ==="
-            for port in 8080 23196 50051 3000; do
-              # First try to stop Docker containers using this port
-              conflicting=$(docker ps --format '{{.ID}} {{.Ports}}' 2>/dev/null | grep ":${port}" | awk '{print $1}')
-              if [ -n "$conflicting" ]; then
-                for cid in $conflicting; do
-                  echo "Stopping container using port $port: $cid"
-                  docker stop "$cid" 2>/dev/null || true
-                  docker rm "$cid" 2>/dev/null || true
-                done
-              fi
-              # Also kill any host process using this port
-              pid=$(ss -tlnp "sport = :${port}" 2>/dev/null | grep -oP 'pid=\K[0-9]+' | head -1)
-              if [ -n "$pid" ]; then
-                echo "Killing host process using port $port: PID $pid"
-                kill -9 "$pid" 2>/dev/null || true
-                sleep 1
-              fi
-            done
-
+            # First do docker compose down to stop all our services
             cd /opt/yogduoj
-            docker compose down 2>/dev/null || true
+            docker compose down --remove-orphans 2>/dev/null || true
+
+            # Force-kill anything still using our ports (docker-proxy, host processes, etc.)
+            echo "=== Force-killing processes on our ports ==="
+            for port in 8080 23196 50051 3000; do
+              echo "Checking port $port..."
+              # Use fuser to kill ALL processes on this port
+              fuser -k "${port}/tcp" 2>/dev/null || true
+              sleep 2
+              # Verify port is free
+              if ss -tlnp "sport = :${port}" >/dev/null 2>&1; then
+                echo "WARNING: Port $port still in use after fuser, trying lsof..."
+                lsof_pid=$(lsof -ti :${port} 2>/dev/null | head -1)
+                if [ -n "$lsof_pid" ]; then
+                  kill -9 "$lsof_pid" 2>/dev/null || true
+                  sleep 1
+                fi
+              fi
+              echo "Port $port: $(ss -tlnp 'sport = :'${port} 2>/dev/null || echo 'free')"
+            done
 
             # Build and start (only build if images don't exist)
             if ! docker image inspect yogduoj-backend:latest >/dev/null 2>&1; then
