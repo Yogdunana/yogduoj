@@ -1,0 +1,88 @@
+name: Fix Other Sites
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'investigate'
+        type: choice
+        options:
+          - investigate
+          - fix
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Investigate and fix other sites
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 101.237.129.33
+          port: 23196
+          username: root
+          password: ${{ secrets.SERVER_PASSWORD }}
+          command_timeout: 15m
+          script: |
+            echo "=========================================="
+            echo "=== INVESTIGATING ALL SITES ==="
+            echo "=========================================="
+
+            # 1. Check nginx status
+            echo "=== Nginx Status ==="
+            systemctl status nginx 2>/dev/null | head -10 || echo "systemctl not available"
+            echo "---"
+            ss -tlnp | grep -E ':(80|443)\b' || echo "Nothing on 80/443"
+
+            # 2. List all sites-enabled
+            echo "=== Sites Enabled ==="
+            ls -la /etc/nginx/sites-enabled/ 2>/dev/null || echo "No sites-enabled"
+
+            # 3. List all sites-available
+            echo "=== Sites Available ==="
+            ls -la /etc/nginx/sites-available/ 2>/dev/null || echo "No sites-available"
+
+            # 4. Show all site configs
+            echo "=== All Site Configs ==="
+            for f in /etc/nginx/sites-enabled/*; do
+              if [ -L "$f" ]; then
+                target=$(readlink -f "$f")
+                echo "--- $f -> $target ---"
+                cat "$target" 2>/dev/null || echo "(empty)"
+                echo ""
+              elif [ -f "$f" ]; then
+                echo "--- $f ---"
+                cat "$f" 2>/dev/null || echo "(empty)"
+                echo ""
+              fi
+            done
+
+            # 5. Check nginx config test
+            echo "=== Nginx Config Test ==="
+            nginx -t 2>&1
+
+            # 6. Check Docker containers
+            echo "=== Docker Containers ==="
+            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null
+
+            # 7. Test each known site
+            echo "=== Site Accessibility Test ==="
+            for domain in oj.yogdunana.com cap.yogdunana.com yogdunana.com; do
+              code=$(curl -sf -o /dev/null -w "%{http_code}" "https://${domain}/" --insecure 2>/dev/null || echo "FAIL")
+              echo "${domain}: HTTP ${code}"
+            done
+
+            # 8. Check for broken symlinks
+            echo "=== Broken Symlinks ==="
+            find /etc/nginx/sites-enabled/ -type l ! -exec test -e {} \; -print 2>/dev/null || echo "No broken symlinks"
+
+            # 9. Check nginx error log
+            echo "=== Recent Nginx Errors ==="
+            tail -20 /var/log/nginx/error.log 2>/dev/null || echo "No error log"
+
+            # 10. Check certbot certificates
+            echo "=== SSL Certificates ==="
+            certbot certificates 2>/dev/null || echo "certbot not available"
+            ls -la /etc/letsencrypt/live/ 2>/dev/null || echo "No letsencrypt dir"
