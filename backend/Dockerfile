@@ -9,16 +9,19 @@ RUN apk add --no-cache git ca-certificates tzdata
 # Use Chinese Go proxy for faster downloads in China
 ENV GOPROXY=https://goproxy.cn,direct
 
-WORKDIR /app
+WORKDIR /src
 
-# Copy go mod files first for dependency caching
-COPY go.mod go.sum ./
-RUN go mod download
+# Copy both backend and judge (backend imports judge/proto via go.mod replace)
+COPY backend/go.mod backend/go.sum ./backend/
+COPY judge/go.mod judge/go.sum ./judge/
+RUN cd backend && go mod download
 
 # Copy source code
-COPY . .
+COPY backend/ ./backend/
+COPY judge/ ./judge/
 
 # Build the binary
+WORKDIR /src/backend
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o /app/bin/server ./cmd/server
 
 # Runtime stage
@@ -31,10 +34,10 @@ RUN apk add --no-cache ca-certificates tzdata
 
 WORKDIR /app
 
-# Copy binary from builder
+# Copy binary and config from builder
 COPY --from=builder /app/bin/server .
-COPY --from=builder /app/config.yaml .
-COPY --from=builder /app/locales ./locales
+COPY --from=builder /src/backend/config.yaml .
+COPY --from=builder /src/backend/locales ./locales
 
 # Create logs directory
 RUN mkdir -p /app/logs

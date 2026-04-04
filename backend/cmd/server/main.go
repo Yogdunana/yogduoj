@@ -77,7 +77,13 @@ func main() {
 	userService := service.NewUserService(userRepo)
 	teamService := service.NewTeamService(teamRepo, userRepo)
 	contestService := service.NewContestService(contestRepo, submissionRepo)
-	judgeService := service.NewJudgeService()
+	judgeService := service.NewJudgeService(cfg.Judge.GRPCAddr, cfg.Judge.Timeout, problemRepo, submissionRepo)
+
+	// Wire up the judge service with the WebSocket notification callback.
+	// The handler package registers the callback via init(), so we retrieve it here.
+	if js, ok := judgeService.(interface{ SetNotifyFunc(service.JudgeNotifyFunc) }); ok {
+		js.SetNotifyFunc(service.GetGlobalNotifyFunc())
+	}
 	announcementService := service.NewAnnouncementService(announcementRepo)
 	antiCheatService := service.NewAntiCheatService()
 	aiService := service.NewAIService()

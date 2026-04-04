@@ -14,6 +14,7 @@ type Config struct {
 	JWT        JWTConfig        `mapstructure:"jwt"`
 	RateLimit  RateLimitConfig  `mapstructure:"rate_limit"`
 	Log        LogConfig        `mapstructure:"log"`
+	Judge      JudgeConfig      `mapstructure:"judge"`
 }
 
 type ServerConfig struct {
@@ -59,6 +60,11 @@ type LogConfig struct {
 	Compress   bool   `mapstructure:"compress"`
 }
 
+type JudgeConfig struct {
+	GRPCAddr string `mapstructure:"grpc_addr"`
+	Timeout  int    `mapstructure:"timeout_seconds"`
+}
+
 func Load(configPath string) (*Config, error) {
 	v := viper.New()
 
@@ -81,6 +87,12 @@ func Load(configPath string) (*Config, error) {
 	v.BindEnv("jwt.secret", "JWT_SECRET")
 	v.BindEnv("jwt.access_ttl", "JWT_ACCESS_TTL")
 	v.BindEnv("jwt.refresh_ttl", "JWT_REFRESH_TTL")
+	v.BindEnv("judge.grpc_addr", "JUDGE_GRPC_ADDR")
+	v.BindEnv("judge.timeout_seconds", "JUDGE_TIMEOUT_SECONDS")
+
+	// Set defaults for judge config
+	v.SetDefault("judge.grpc_addr", "judge:50051")
+	v.SetDefault("judge.timeout_seconds", 30)
 
 	if err := v.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)

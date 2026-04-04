@@ -5,6 +5,14 @@ import (
 	"gorm.io/gorm"
 )
 
+// Migrate runs auto-migration and seeds initial data.
+func Migrate(db *gorm.DB) error {
+	if err := AutoMigrate(db); err != nil {
+		return err
+	}
+	return SeedData(db)
+}
+
 // AutoMigrate runs GORM auto-migration for all models.
 func AutoMigrate(db *gorm.DB) error {
 	return db.AutoMigrate(

@@ -3,6 +3,7 @@ module github.com/Yogdunana/yogduoj/backend
 go 1.22
 
 require (
+	github.com/Yogdunana/yogduoj/judge v0.0.0
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-gonic/gin v1.9.1
 	github.com/golang-jwt/jwt/v5 v5.2.1
@@ -10,12 +11,15 @@ require (
 	github.com/nicksnyder/go-i18n/v2 v2.4.0
 	github.com/spf13/viper v1.18.2
 	go.uber.org/zap v1.27.0
-	golang.org/x/crypto v0.22.0
-	golang.org/x/text v0.14.0
+	golang.org/x/crypto v0.26.0
+	golang.org/x/text v0.17.0
 	golang.org/x/time v0.5.0
+	google.golang.org/grpc v1.67.1
 	gorm.io/driver/mysql v1.5.6
 	gorm.io/gorm v1.25.9
 )
+
+replace github.com/Yogdunana/yogduoj/judge => ../judge
 
 require (
 	github.com/bytedance/sonic v1.11.6 // indirect
@@ -54,9 +58,10 @@ require (
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/arch v0.7.0 // indirect
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
-	golang.org/x/net v0.24.0 // indirect
-	golang.org/x/sys v0.19.0 // indirect
-	google.golang.org/protobuf v1.34.0 // indirect
+	golang.org/x/net v0.28.0 // indirect
+	golang.org/x/sys v0.28.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240814211410-ddb44dafa142 // indirect
+	google.golang.org/protobuf v1.35.2 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

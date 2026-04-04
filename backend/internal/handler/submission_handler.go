@@ -66,6 +66,17 @@ func (h *submissionHub) Notify(submissionID uint, data interface{}) {
 	}
 }
 
+// NotifyJudgeUpdate is a package-level function that allows the judge service
+// to push real-time judge status updates to WebSocket clients.
+func NotifyJudgeUpdate(submissionID uint, data interface{}) {
+	hub.Notify(submissionID, data)
+}
+
+// init registers the WebSocket notification callback with the judge service.
+func init() {
+	service.SetGlobalNotifyFunc(NotifyJudgeUpdate)
+}
+
 type SubmissionHandler struct {
 	submissionService service.SubmissionService
 	judgeService      service.JudgeService

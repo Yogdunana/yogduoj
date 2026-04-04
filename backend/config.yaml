@@ -30,3 +30,7 @@ log:
   max_backups: 10
   max_age: 30
   compress: true
+
+judge:
+  grpc_addr: "judge:50051"
+  timeout_seconds: 30
