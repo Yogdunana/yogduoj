@@ -1,0 +1,45 @@
+name: Cleanup Server
+on:
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cleanup server disk space
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 101.237.129.33
+          port: 23196
+          username: root
+          password: ${{ secrets.SERVER_PASSWORD }}
+          command_timeout: 10m
+          script: |
+            echo "=== Disk Usage Before ==="
+            df -h /
+
+            echo "=== Docker Disk Usage ==="
+            docker system df
+
+            echo "=== Cleaning Docker ==="
+            docker system prune -a -f --volumes
+            docker image prune -a -f
+            docker volume prune -f
+            docker builder prune -a -f
+
+            echo "=== Cleaning APT Cache ==="
+            apt-get clean
+            apt-get autoremove -y
+            rm -rf /var/lib/apt/lists/*
+
+            echo "=== Cleaning Logs ==="
+            journalctl --vacuum-time=3d
+            rm -rf /tmp/*
+            rm -rf /var/tmp/*
+
+            echo "=== Finding Large Files ==="
+            du -sh /var/lib/docker/* 2>/dev/null | sort -rh | head -10
+            du -sh /var/log/* 2>/dev/null | sort -rh | head -10
+
+            echo "=== Disk Usage After ==="
+            df -h /
