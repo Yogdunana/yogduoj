@@ -70,6 +70,18 @@ func Load(configPath string) (*Config, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 
+	// Bind common env var names (without prefix) for Docker compatibility
+	v.BindEnv("database.host", "DB_HOST")
+	v.BindEnv("database.port", "DB_PORT")
+	v.BindEnv("database.user", "DB_USER")
+	v.BindEnv("database.password", "DB_PASSWORD")
+	v.BindEnv("database.dbname", "DB_NAME")
+	v.BindEnv("server.port", "SERVER_PORT")
+	v.BindEnv("server.mode", "GIN_MODE")
+	v.BindEnv("jwt.secret", "JWT_SECRET")
+	v.BindEnv("jwt.access_ttl", "JWT_ACCESS_TTL")
+	v.BindEnv("jwt.refresh_ttl", "JWT_REFRESH_TTL")
+
 	if err := v.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
