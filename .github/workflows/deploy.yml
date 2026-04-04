@@ -23,20 +23,26 @@ jobs:
             # Create deploy directory
             mkdir -p /opt/yogduoj
 
-            # Clone or update repo
-            if [ -d /opt/yogduoj/.git ]; then
-              cd /opt/yogduoj
-              git fetch origin
-              git reset --hard origin/main
+            # Clone or update repo (skip if images already built)
+            if docker image inspect yogduoj-backend:latest >/dev/null 2>&1; then
+              echo "Images already built, skipping git clone and build"
             else
-              rm -rf /opt/yogduoj
-              git clone https://github.com/Yogdunana/yogduoj.git /opt/yogduoj
-              cd /opt/yogduoj
+              if [ -d /opt/yogduoj/.git ]; then
+                cd /opt/yogduoj
+                git fetch origin
+                git reset --hard origin/main
+              else
+                rm -rf /opt/yogduoj
+                git clone https://github.com/Yogdunana/yogduoj.git /opt/yogduoj
+                cd /opt/yogduoj
+              fi
+              echo "=== Building images ==="
+              docker compose build --parallel
             fi
 
             # Write .env if not exists
-            if [ ! -f .env ]; then
-              cat > .env << 'ENV_EOF'
+            if [ ! -f /opt/yogduoj/.env ]; then
+              cat > /opt/yogduoj/.env << 'ENV_EOF'
             MYSQL_ROOT_PASSWORD=YogduOJ2026Secure!
             DB_HOST=mysql
             DB_PORT=3306
@@ -57,7 +63,7 @@ jobs:
             fi
 
             # Write docker-compose.yml
-            cat > docker-compose.yml << 'COMPOSE_EOF'
+            cat > /opt/yogduoj/docker-compose.yml << 'COMPOSE_EOF'
             services:
               mysql:
                 image: mysql:8.0
@@ -124,7 +130,7 @@ jobs:
                 ports:
                   - "23196:80"
                 volumes:
-                  - ./deploy/nginx/conf.d/yogduoj.conf:/etc/nginx/conf.d/default.conf:ro
+                  - /opt/yogduoj/deploy/nginx/conf.d/yogduoj.conf:/etc/nginx/conf.d/default.conf:ro
                 depends_on:
                   - frontend
                   - backend
@@ -142,8 +148,8 @@ jobs:
             COMPOSE_EOF
 
             # Write nginx config
-            mkdir -p deploy/nginx/conf.d
-            cat > deploy/nginx/conf.d/yogduoj.conf << 'NGINX_EOF'
+            mkdir -p /opt/yogduoj/deploy/nginx/conf.d
+            cat > /opt/yogduoj/deploy/nginx/conf.d/yogduoj.conf << 'NGINX_EOF'
             server {
                 listen 80;
                 server_name oj.yogdunana.com _;
@@ -182,12 +188,14 @@ jobs:
             docker stop yogduoj-backend yogduoj-frontend yogduoj-judge yogduoj-nginx yogduoj-mysql 2>/dev/null || true
             docker rm yogduoj-backend yogduoj-frontend yogduoj-judge yogduoj-nginx yogduoj-mysql 2>/dev/null || true
 
-            # Stop existing containers from docker-compose
+            cd /opt/yogduoj
             docker compose down 2>/dev/null || true
 
-            # Build and start
-            echo "=== Building images ==="
-            docker compose build --parallel
+            # Build and start (only build if images don't exist)
+            if ! docker image inspect yogduoj-backend:latest >/dev/null 2>&1; then
+              echo "=== Building images ==="
+              docker compose build --parallel
+            fi
 
             echo "=== Starting services ==="
             docker compose up -d
