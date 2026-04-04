@@ -402,6 +402,9 @@ jobs:
             echo "=== Backend Seed Logs ==="
             docker logs yogduoj-backend 2>&1 | grep -E "(Seed|Error|FATAL)" | head -10
 
+            echo "=== DB Counts ==="
+            docker exec yogduoj-mysql mysql -uroot -pYogduOJ2026Secure! yogduoj -e "SELECT 'submissions' as t, COUNT(*) as c FROM submissions;" 2>&1
+
             echo "=== Container Status ==="
             docker compose ps
 
