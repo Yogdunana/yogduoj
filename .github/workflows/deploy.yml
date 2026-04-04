@@ -184,9 +184,16 @@ jobs:
             }
             NGINX_EOF
 
-            # Stop any existing YogduOJ containers (from previous manual deployments)
-            docker stop yogduoj-backend yogduoj-frontend yogduoj-judge yogduoj-nginx yogduoj-mysql 2>/dev/null || true
-            docker rm yogduoj-backend yogduoj-frontend yogduoj-judge yogduoj-nginx yogduoj-mysql 2>/dev/null || true
+            # Stop containers using our ports
+            echo "=== Stopping conflicting containers ==="
+            for port in 8080 23196 50051 3000; do
+              container_id=$(docker ps -q --filter "publish=$port" 2>/dev/null)
+              if [ -n "$container_id" ]; then
+                echo "Stopping container using port $port: $container_id"
+                docker stop "$container_id" 2>/dev/null || true
+                docker rm "$container_id" 2>/dev/null || true
+              fi
+            done
 
             cd /opt/yogduoj
             docker compose down 2>/dev/null || true
