@@ -1,0 +1,43 @@
+name: Investigate Disk
+on:
+  workflow_dispatch:
+
+jobs:
+  investigate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find large files and directories
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 101.237.129.33
+          port: 23196
+          username: root
+          password: ${{ secrets.SERVER_PASSWORD }}
+          command_timeout: 5m
+          script: |
+            echo "=== Top 20 Largest Directories ==="
+            du -sh /* 2>/dev/null | sort -rh | head -20
+
+            echo "=== Top 20 in /var ==="
+            du -sh /var/* 2>/dev/null | sort -rh | head -20
+
+            echo "=== Top 20 in /var/lib ==="
+            du -sh /var/lib/* 2>/dev/null | sort -rh | head -20
+
+            echo "=== Top 20 in /root ==="
+            du -sh /root/* 2>/dev/null | sort -rh | head -20
+
+            echo "=== Top 20 in /opt ==="
+            du -sh /opt/* 2>/dev/null | sort -rh | head -20
+
+            echo "=== Top 20 in /usr ==="
+            du -sh /usr/* 2>/dev/null | sort -rh | head -20
+
+            echo "=== Top 20 in /home ==="
+            du -sh /home/* 2>/dev/null | sort -rh | head -20
+
+            echo "=== Docker overlay2 ==="
+            du -sh /var/lib/docker/overlay2 2>/dev/null
+
+            echo "=== Large files (>100MB) ==="
+            find / -type f -size +100M 2>/dev/null | head -20
