@@ -276,12 +276,19 @@ jobs:
             systemctl status nginx 2>/dev/null | head -5 || echo "systemctl not available"
             ss -tlnp | grep -E ':(80|443)\b' || echo "Nothing on 80/443"
             nginx -t 2>&1
+            echo "--- Nginx error log ---"
+            tail -10 /var/log/nginx/error.log 2>/dev/null || echo "No error log"
+            echo "--- SSL cert check ---"
+            ls -la /etc/letsencrypt/live/oj.yogdunana.com/ 2>/dev/null || echo "No SSL cert dir"
             if [ -f /run/nginx.pid ] && [ -s /run/nginx.pid ]; then
               echo "Reloading nginx..."
               nginx -s reload 2>/dev/null || true
             else
               echo "Starting nginx..."
               systemctl start nginx 2>/dev/null || nginx 2>/dev/null || true
+              sleep 2
+              echo "--- Nginx error log after start ---"
+              tail -10 /var/log/nginx/error.log 2>/dev/null || echo "No error log"
             fi
             echo "--- Host nginx status after ---"
             ss -tlnp | grep -E ':(80|443)\b' || echo "Nothing on 80/443"
