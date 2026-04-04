@@ -184,14 +184,17 @@ jobs:
             }
             NGINX_EOF
 
-            # Stop containers using our ports
+            # Stop containers using our ports (check actual port bindings)
             echo "=== Stopping conflicting containers ==="
             for port in 8080 23196 50051 3000; do
-              container_id=$(docker ps -q --filter "publish=$port" 2>/dev/null)
-              if [ -n "$container_id" ]; then
-                echo "Stopping container using port $port: $container_id"
-                docker stop "$container_id" 2>/dev/null || true
-                docker rm "$container_id" 2>/dev/null || true
+              # Use grep on docker ps output to catch 127.0.0.1:port bindings too
+              conflicting=$(docker ps --format '{{.ID}} {{.Ports}}' 2>/dev/null | grep ":${port}" | awk '{print $1}')
+              if [ -n "$conflicting" ]; then
+                for cid in $conflicting; do
+                  echo "Stopping container using port $port: $cid"
+                  docker stop "$cid" 2>/dev/null || true
+                  docker rm "$cid" 2>/dev/null || true
+                done
               fi
             done
 
