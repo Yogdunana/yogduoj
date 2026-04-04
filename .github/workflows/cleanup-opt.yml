@@ -1,0 +1,42 @@
+name: Cleanup Opt
+on:
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Investigate and cleanup /opt
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 101.237.129.33
+          port: 23196
+          username: root
+          password: ${{ secrets.SERVER_PASSWORD }}
+          command_timeout: 10m
+          script: |
+            echo "=== /opt contents ==="
+            du -sh /opt/* 2>/dev/null | sort -rh | head -20
+
+            echo "=== /opt/yogduoj ==="
+            du -sh /opt/yogduoj/* 2>/dev/null | sort -rh | head -20 2>/dev/null || echo "No yogduoj dir"
+
+            echo "=== Cleaning containerd ==="
+            ctr -n moby content ls 2>/dev/null | wc -l
+            ctr -n moby content rm $(ctr -n moby content ls -q) 2>/dev/null || true
+
+            echo "=== Cleaning old Docker images and containers ==="
+            docker stop $(docker ps -aq) 2>/dev/null || true
+            docker rm $(docker ps -aq) 2>/dev/null || true
+            docker rmi $(docker images -q) 2>/dev/null || true
+            docker system prune -a -f --volumes 2>/dev/null || true
+
+            echo "=== Cleaning snap cache ==="
+            snap set system refresh.retain=2
+            snap list --all | awk '/disabled/{print $1, $3}' | while read name revision; do snap remove "$name" --revision="$revision" 2>/dev/null; done
+
+            echo "=== Cleaning old kernels ==="
+            dpkg -l 'linux-image-*' 2>/dev/null | grep '^ii' | awk '{print $2}' | sort -V | head -n -1 | xargs apt-get -y purge 2>/dev/null || true
+
+            echo "=== Final Disk Usage ==="
+            df -h /
