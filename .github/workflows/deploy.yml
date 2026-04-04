@@ -199,7 +199,11 @@ jobs:
             # Smart build: only rebuild images when source code changes
             echo "=== Checking for changes ==="
             NEED_BUILD=false
-            for svc in backend judge frontend; do
+            # Always rebuild frontend (it's fast and ensures latest changes)
+            echo "frontend: always rebuilding"
+            docker compose build --no-cache frontend
+            NEED_BUILD=true
+            for svc in backend judge; do
               if docker image inspect "yogduoj-${svc}:latest" >/dev/null 2>&1; then
                 # Image exists, check if source changed
                 if git diff --quiet HEAD~1 -- "${svc}/" 2>/dev/null; then
