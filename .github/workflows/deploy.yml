@@ -224,23 +224,12 @@ jobs:
             ss -tlnp | grep 23196 || echo "Nothing listening on 23196"
             echo "--- All listening ports for web servers ---"
             ss -tlnp | grep -E ':(80|443|8080|23196|23197|3000)\b' || echo "None found"
-            echo "--- Web server processes ---"
-            ps aux | grep -E '(nginx|caddy|apache|httpd)' | grep -v grep || echo "No web server processes"
-            echo "--- Host nginx config ---"
-            ls -la /etc/nginx/ 2>/dev/null || echo "No /etc/nginx"
-            ls -la /etc/nginx/conf.d/ 2>/dev/null || echo "No conf.d"
-            cat /etc/nginx/nginx.conf 2>/dev/null | head -50 || echo "No nginx.conf"
             echo "--- Host nginx sites ---"
             ls /etc/nginx/sites-enabled/ 2>/dev/null || echo "No sites-enabled"
-            for f in /etc/nginx/conf.d/*.conf; do
-              echo "=== $f ==="
-              cat "$f" 2>/dev/null
-            done
-            echo "--- Caddy check ---"
-            which caddy 2>/dev/null && caddy version 2>/dev/null || echo "No Caddy"
-            ls /etc/caddy/ 2>/dev/null || echo "No /etc/caddy"
-            echo "--- Docker networks ---"
-            docker network ls 2>/dev/null
+            echo "--- Example site config (cap.yogdunana.com) ---"
+            cat /etc/nginx/sites-enabled/cap.yogdunana.com 2>/dev/null || echo "Not found"
+            echo "--- Host nginx listening ports ---"
+            nginx -T 2>/dev/null | grep -E "listen\s+" | head -10 || echo "nginx -T failed"
 
             # Wait for services
             echo "=== Waiting for services ==="
