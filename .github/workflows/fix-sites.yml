@@ -8,7 +8,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Restore other sites
+      - name: Fix cap.yogdunana.com
         uses: appleboy/ssh-action@v1
         with:
           host: 101.237.129.33
@@ -17,52 +17,40 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           command_timeout: 15m
           script: |
-            echo "=========================================="
-            echo "=== DETAILED INVESTIGATION ==="
-            echo "=========================================="
+            echo "=== Investigating cap.yogdunana.com ==="
 
-            # 1. Check for docker-compose files for other sites
-            echo "=== Docker Compose Files ==="
-            find /opt -name "docker-compose.yml" -o -name "docker-compose.yaml" 2>/dev/null
-            find /root -name "docker-compose.yml" -o -name "docker-compose.yaml" 2>/dev/null
-            find /home -name "docker-compose.yml" -o -name "docker-compose.yaml" 2>/dev/null
+            # Find cap project files
+            echo "--- Find cap project ---"
+            find / -maxdepth 4 -name "*.py" -path "*cap*" 2>/dev/null | head -10
+            find / -maxdepth 4 -name "manage.py" 2>/dev/null | head -5
+            find / -maxdepth 4 -name "requirements.txt" -path "*cap*" 2>/dev/null | head -5
+            find / -maxdepth 4 -name "Dockerfile" -path "*cap*" 2>/dev/null | head -5
+            find / -maxdepth 4 -type d -name "*cap*" 2>/dev/null | head -10
 
-            # 2. Check ALL docker containers (including stopped ones)
-            echo "=== All Docker Containers (including stopped) ==="
-            docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}" 2>/dev/null
+            # Check PM2 ecosystem/config
+            echo "--- PM2 config ---"
+            cat /root/ecosystem.config.js 2>/dev/null || echo "No ecosystem.config.js"
+            pm2 show cap 2>/dev/null || echo "No PM2 app named cap"
+            pm2 show calorie 2>/dev/null || echo "No PM2 app named calorie"
+            pm2 prettylist 2>/dev/null | grep -A5 -E '(name|port|cwd|script|pm_exec_path)' | head -40
 
-            # 3. Check systemd services related to web apps
-            echo "=== Systemd Web Services ==="
-            systemctl list-units --type=service --state=running 2>/dev/null | grep -iE '(cap|calorie|referral|maixuan|node|python|gunicorn|uvicorn|flask|django|next|nuxt|vite)' || echo "No matching systemd services"
+            # Check Docker history for cap containers
+            echo "--- Docker stopped containers ---"
+            docker ps -a --filter "name=cap" --format "{{.Names}} {{.Status}} {{.Image}}" 2>/dev/null
+            docker ps -a --format "{{.Names}} {{.Status}} {{.Image}}" 2>/dev/null | grep -v yogduoj
 
-            # 4. Check for PM2 processes
-            echo "=== PM2 Processes ==="
-            pm2 list 2>/dev/null || echo "PM2 not installed"
+            # Check nginx config for cap
+            echo "--- Cap nginx config ---"
+            cat /etc/nginx/sites-available/cap.yogdunana.com 2>/dev/null
 
-            # 5. Check what's supposed to be on ports 3001, 3002, 8000
-            echo "=== Port Status ==="
-            for port in 3001 3002 8000; do
-              echo "Port $port:"
-              ss -tlnp "sport = :${port}" 2>/dev/null || echo "  (nothing listening)"
-            done
+            # Check if port 8000 was used by a Docker container before
+            echo "--- Docker images with port 8000 ---"
+            docker images --format "{{.Repository}}:{{.Tag}}" 2>/dev/null | grep -v yogduoj
 
-            # 6. Check for screen/tmux sessions
-            echo "=== Screen/Tmux Sessions ==="
-            screen -ls 2>/dev/null || echo "No screen sessions"
-            tmux list-sessions 2>/dev/null || echo "No tmux sessions"
+            # Check for any Python/Django/Flask processes
+            echo "--- Python processes ---"
+            ps aux | grep -E '(python|gunicorn|uvicorn|flask|django)' | grep -v grep || echo "No Python processes"
 
-            # 7. Check /opt directories for other projects
-            echo "=== /opt Contents ==="
-            ls -la /opt/ 2>/dev/null
-
-            # 8. Check for any process that was running before (journalctl)
-            echo "=== Recent Docker Events ==="
-            journalctl -u docker --since "6 hours ago" --no-pager 2>/dev/null | grep -E "(cap|calorie|referral|maixuan|die|kill|stop|start)" | tail -20 || echo "No journalctl access"
-
-            # 9. Check docker images for other sites
-            echo "=== Docker Images (non-yogduoj) ==="
-            docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.CreatedAt}}" 2>/dev/null | grep -v yogduoj | head -20
-
-            # 10. Check for supervisord
-            echo "=== Supervisor ==="
-            supervisorctl status 2>/dev/null || echo "No supervisord"
+            # Check bash history for clues
+            echo "--- Recent bash history ---"
+            grep -E '(cap|8000|docker run)' ~/.bash_history 2>/dev/null | tail -20 || echo "No bash history"
