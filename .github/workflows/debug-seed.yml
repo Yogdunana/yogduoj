@@ -1,0 +1,27 @@
+name: Debug Seed
+on:
+  workflow_dispatch:
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Debug seed data
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 101.237.129.33
+          port: 23196
+          username: root
+          password: ${{ secrets.SERVER_PASSWORD }}
+          command_timeout: 5m
+          script: |
+            echo "=== Backend Logs ==="
+            docker logs yogduoj-backend --tail 50 2>&1
+
+            echo "=== Check DB tables ==="
+            docker exec yogduoj-mysql mysql -uroot -pYogduOJ2026Secure! yogduoj -e "SELECT COUNT(*) as users FROM users; SELECT COUNT(*) as problems FROM problems; SELECT COUNT(*) as contests FROM contests; SELECT COUNT(*) as announcements FROM announcements; SELECT COUNT(*) as tags FROM tags; SELECT COUNT(*) as submissions FROM submissions;" 2>&1
+
+            echo "=== Backend container status ==="
+            docker inspect yogduoj-backend --format '{{.State.Status}} {{.State.ExitCode}} {{.RestartCount}}' 2>&1
