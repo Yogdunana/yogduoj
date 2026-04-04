@@ -449,7 +449,7 @@ func (s *contestService) WithdrawUser(ctx context.Context, contestID uint, userI
 
 // GetContestProblems returns contest problems (only if signed up and contest is running).
 func (s *contestService) GetContestProblems(ctx context.Context, contestID uint, userID uint) ([]model.ContestProblem, error) {
-	contest, err := s.contestRepo.GetByID(ctx, contestID)
+	_, err := s.contestRepo.GetByID(ctx, contestID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrContestNotFound
