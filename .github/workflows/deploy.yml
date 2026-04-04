@@ -9,27 +9,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GitHub Container Registry
-        run: echo "${{ secrets.PAT_TOKEN }}" | docker login ghcr.io -u Yogdunana --password-stdin
-
-      - name: Build and push backend
-        run: |
-          docker build -t ghcr.io/yogdunana/yogduoj-backend:latest ./backend
-          docker push ghcr.io/yogdunana/yogduoj-backend:latest
-
-      - name: Build and push frontend
-        run: |
-          docker build -t ghcr.io/yogdunana/yogduoj-frontend:latest ./frontend
-          docker push ghcr.io/yogdunana/yogduoj-frontend:latest
-
-      - name: Build and push judge
-        run: |
-          docker build -t ghcr.io/yogdunana/yogduoj-judge:latest ./judge
-          docker push ghcr.io/yogdunana/yogduoj-judge:latest
-
       - name: Deploy to server via SSH
         uses: appleboy/ssh-action@v1
         with:
@@ -37,17 +16,47 @@ jobs:
           port: 23196
           username: root
           password: ${{ secrets.SERVER_PASSWORD }}
-          command_timeout: 10m
+          command_timeout: 30m
           script: |
-            # Create deploy directory if not exists
-            mkdir -p /opt/yogduoj/deploy/nginx/conf.d
-            mkdir -p /opt/yogduoj/deploy/mysql
-            mkdir -p /opt/yogduoj/deploy/scripts
+            set -e
+
+            # Create deploy directory
+            mkdir -p /opt/yogduoj
+
+            # Clone or update repo
+            if [ -d /opt/yogduoj/.git ]; then
+              cd /opt/yogduoj
+              git fetch origin
+              git reset --hard origin/main
+            else
+              git clone https://github.com/Yogdunana/yogduoj.git /opt/yogduoj
+              cd /opt/yogduoj
+            fi
+
+            # Write .env if not exists
+            if [ ! -f .env ]; then
+              cat > .env << 'ENV_EOF'
+            MYSQL_ROOT_PASSWORD=YogduOJ2026Secure!
+            DB_HOST=mysql
+            DB_PORT=3306
+            DB_USER=root
+            DB_PASSWORD=YogduOJ2026Secure!
+            DB_NAME=yogduoj
+            JWT_SECRET=yogduoj_jwt_secret_key_change_in_production_2026
+            JWT_ACCESS_TTL=2h
+            JWT_REFRESH_TTL=168h
+            SERVER_PORT=8080
+            GIN_MODE=release
+            JUDGE_GRPC_ADDR=judge:50051
+            JUDGE_POOL_SIZE=4
+            APP_NAME=YogduOJ
+            APP_URL=https://oj.yogdunana.com
+            ENV_EOF
+              echo "Created .env file"
+            fi
 
             # Write docker-compose.yml
-            cat > /opt/yogduoj/docker-compose.yml << 'COMPOSE_EOF'
-            version: '3.8'
-
+            cat > docker-compose.yml << 'COMPOSE_EOF'
             services:
               mysql:
                 image: mysql:8.0
@@ -69,7 +78,7 @@ jobs:
                   retries: 5
 
               backend:
-                image: ghcr.io/yogdunana/yogduoj-backend:latest
+                build: ./backend
                 container_name: yogduoj-backend
                 restart: always
                 env_file: .env
@@ -85,7 +94,7 @@ jobs:
                   - yogduoj-net
 
               judge:
-                image: ghcr.io/yogdunana/yogduoj-judge:latest
+                build: ./judge
                 container_name: yogduoj-judge
                 restart: always
                 privileged: true
@@ -101,7 +110,7 @@ jobs:
                   - yogduoj-net
 
               frontend:
-                image: ghcr.io/yogdunana/yogduoj-frontend:latest
+                build: ./frontend
                 container_name: yogduoj-frontend
                 restart: always
                 ports:
@@ -116,7 +125,7 @@ jobs:
                 ports:
                   - "23196:80"
                 volumes:
-                  - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+                  - ./deploy/nginx/conf.d/yogduoj.conf:/etc/nginx/conf.d/default.conf:ro
                 depends_on:
                   - frontend
                   - backend
@@ -133,30 +142,9 @@ jobs:
                 driver: bridge
             COMPOSE_EOF
 
-            # Write .env if not exists
-            if [ ! -f /opt/yogduoj/.env ]; then
-              cat > /opt/yogduoj/.env << 'ENV_EOF'
-            MYSQL_ROOT_PASSWORD=YogduOJ2026Secure!
-            DB_HOST=mysql
-            DB_PORT=3306
-            DB_USER=root
-            DB_PASSWORD=YogduOJ2026Secure!
-            DB_NAME=yogduoj
-            JWT_SECRET=yogduoj_jwt_secret_key_change_in_production_2026
-            JWT_ACCESS_TTL=2h
-            JWT_REFRESH_TTL=168h
-            SERVER_PORT=8080
-            GIN_MODE=release
-            JUDGE_GRPC_ADDR=judge:50051
-            JUDGE_POOL_SIZE=4
-            APP_NAME=YogduOJ
-            APP_URL=https://oj.yogdunana.com
-            ENV_EOF
-              echo "Created .env file"
-            fi
-
             # Write nginx config
-            cat > /opt/yogduoj/nginx.conf << 'NGINX_EOF'
+            mkdir -p deploy/nginx/conf.d
+            cat > deploy/nginx/conf.d/yogduoj.conf << 'NGINX_EOF'
             server {
                 listen 80;
                 server_name oj.yogdunana.com _;
@@ -191,21 +179,24 @@ jobs:
             }
             NGINX_EOF
 
-            # Login to GHCR and pull images
-            echo "${{ secrets.PAT_TOKEN }}" | docker login ghcr.io -u Yogdunana --password-stdin 2>/dev/null
+            # Stop existing containers
+            docker compose down 2>/dev/null || true
 
-            cd /opt/yogduoj
-            docker compose pull
+            # Build and start
+            echo "=== Building images ==="
+            docker compose build --parallel
+
+            echo "=== Starting services ==="
             docker compose up -d
-            docker image prune -f
 
-            # Wait for services to start
-            sleep 15
+            # Wait for services
+            echo "=== Waiting for services ==="
+            sleep 30
 
             # Health check
             echo "=== Health Check ==="
-            curl -sf http://localhost:8080/api/v1/health || echo "Backend health check failed"
-            curl -sf http://localhost:23196/ -o /dev/null -w "Frontend HTTP status: %{http_code}\n" || echo "Frontend check failed"
+            curl -sf http://localhost:8080/api/v1/health && echo "Backend: OK" || echo "Backend: FAILED"
+            curl -sf http://localhost:23196/ -o /dev/null -w "Frontend: HTTP %{http_code}\n" || echo "Frontend: FAILED"
 
-            echo "=== Docker Status ==="
+            echo "=== Container Status ==="
             docker compose ps
