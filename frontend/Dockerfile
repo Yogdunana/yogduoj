@@ -1,5 +1,8 @@
 FROM node:20-alpine AS builder
 
+# Use Chinese npm mirror for faster downloads in China
+RUN npm config set registry https://registry.npmmirror.com
+
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci

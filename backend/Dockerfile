@@ -3,6 +3,9 @@ FROM golang:1.22-alpine AS builder
 
 RUN apk add --no-cache git ca-certificates tzdata
 
+# Use Chinese Go proxy for faster downloads in China
+ENV GOPROXY=https://goproxy.cn,direct
+
 WORKDIR /app
 
 # Copy go mod files first for dependency caching
