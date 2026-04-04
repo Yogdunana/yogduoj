@@ -564,12 +564,16 @@ print(a + b)`,
 		if submissions[i].JudgeDetail == "" {
 			submissions[i].JudgeDetail = "[]"
 		}
-		db.FirstOrCreate(&submissions[i], model.Submission{
+		if err := db.FirstOrCreate(&submissions[i], model.Submission{
 			UserID:    submissions[i].UserID,
 			ProblemID: submissions[i].ProblemID,
 			CodePath:  submissions[i].CodePath,
-		})
+		}).Error; err != nil {
+			log.Printf("[Seed] Error creating submission user=%d problem=%d: %v", submissions[i].UserID, submissions[i].ProblemID, err)
+			return err
+		}
 	}
+	log.Printf("[Seed] Created %d submissions", len(submissions))
 
 	// --- Contests ---
 	contests := []model.Contest{
