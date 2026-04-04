@@ -187,24 +187,33 @@ jobs:
             # First do docker compose down to stop all our services
             cd /opt/yogduoj
             docker compose down --remove-orphans 2>/dev/null || true
+            sleep 3
 
-            # Force-kill anything still using our ports (docker-proxy, host processes, etc.)
-            echo "=== Force-killing processes on our ports ==="
+            # Kill any remaining docker-proxy or processes on our ports
+            echo "=== Cleaning up port conflicts ==="
             for port in 8080 23196 50051 3000; do
               echo "Checking port $port..."
-              # Use fuser to kill ALL processes on this port
-              fuser -k "${port}/tcp" 2>/dev/null || true
-              sleep 2
-              # Verify port is free
-              if ss -tlnp "sport = :${port}" >/dev/null 2>&1; then
-                echo "WARNING: Port $port still in use after fuser, trying lsof..."
-                lsof_pid=$(lsof -ti :${port} 2>/dev/null | head -1)
-                if [ -n "$lsof_pid" ]; then
-                  kill -9 "$lsof_pid" 2>/dev/null || true
-                  sleep 1
-                fi
+              # Find and kill docker-proxy processes for this port
+              pids=$(ss -tlnp "sport = :${port}" 2>/dev/null | grep -oP 'pid=\K[0-9]+' || true)
+              if [ -n "$pids" ]; then
+                for pid in $pids; do
+                  echo "Killing PID $pid on port $port"
+                  kill -9 "$pid" 2>/dev/null || true
+                done
+                sleep 2
               fi
-              echo "Port $port: $(ss -tlnp 'sport = :'${port} 2>/dev/null || echo 'free')"
+              # Double check - if still in use, try once more
+              pids2=$(ss -tlnp "sport = :${port}" 2>/dev/null | grep -oP 'pid=\K[0-9]+' || true)
+              if [ -n "$pids2" ]; then
+                for pid in $pids2; do
+                  echo "Force-killing remaining PID $pid on port $port"
+                  kill -9 "$pid" 2>/dev/null || true
+                done
+                sleep 3
+              fi
+              # Final check
+              remaining=$(ss -tlnp "sport = :${port}" 2>/dev/null | grep -c ":${port}" || echo "0")
+              echo "Port $port: $remaining process(es) remaining"
             done
 
             # Build and start (only build if images don't exist)
