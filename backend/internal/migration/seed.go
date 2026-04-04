@@ -560,6 +560,8 @@ print(a + b)`,
 		subID++
 	}
 
+	// Disable foreign key checks for submissions (TeamID=0 has no matching team)
+	db.Exec("SET FOREIGN_KEY_CHECKS=0")
 	for i := range submissions {
 		if submissions[i].JudgeDetail == "" {
 			submissions[i].JudgeDetail = "[]"
@@ -574,6 +576,7 @@ print(a + b)`,
 		}
 	}
 	log.Printf("[Seed] Created %d submissions", len(submissions))
+	db.Exec("SET FOREIGN_KEY_CHECKS=1")
 
 	// --- Contests ---
 	contests := []model.Contest{
