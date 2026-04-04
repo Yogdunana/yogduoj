@@ -8,7 +8,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Fix cap.yogdunana.com
+      - name: Deep investigate cap
         uses: appleboy/ssh-action@v1
         with:
           host: 101.237.129.33
@@ -17,40 +17,60 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           command_timeout: 15m
           script: |
-            echo "=== Investigating cap.yogdunana.com ==="
+            echo "=== Deep investigation for cap.yogdunana.com ==="
 
-            # Find cap project files
-            echo "--- Find cap project ---"
-            find / -maxdepth 4 -name "*.py" -path "*cap*" 2>/dev/null | head -10
-            find / -maxdepth 4 -name "manage.py" 2>/dev/null | head -5
-            find / -maxdepth 4 -name "requirements.txt" -path "*cap*" 2>/dev/null | head -5
-            find / -maxdepth 4 -name "Dockerfile" -path "*cap*" 2>/dev/null | head -5
-            find / -maxdepth 4 -type d -name "*cap*" 2>/dev/null | head -10
+            # Search entire filesystem for cap-related project files
+            echo "--- Searching for cap project files ---"
+            find / -maxdepth 5 -type d -iname "*cap*" 2>/dev/null | grep -v proc | grep -v sys | grep -v lib | grep -v share | grep -v doc | grep -v cache
+            find / -maxdepth 5 -name "docker-compose*" 2>/dev/null | grep -v yogduoj | grep -v proc
+            find / -maxdepth 5 -name "*.env" 2>/dev/null | grep -v yogduoj | grep -v proc | grep -v snap
 
-            # Check PM2 ecosystem/config
-            echo "--- PM2 config ---"
-            cat /root/ecosystem.config.js 2>/dev/null || echo "No ecosystem.config.js"
-            pm2 show cap 2>/dev/null || echo "No PM2 app named cap"
-            pm2 show calorie 2>/dev/null || echo "No PM2 app named calorie"
-            pm2 prettylist 2>/dev/null | grep -A5 -E '(name|port|cwd|script|pm_exec_path)' | head -40
+            # Check all Docker images ever built
+            echo "--- All Docker images ---"
+            docker images -a --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.Size}}\t{{.CreatedAt}}" 2>/dev/null
 
-            # Check Docker history for cap containers
-            echo "--- Docker stopped containers ---"
-            docker ps -a --filter "name=cap" --format "{{.Names}} {{.Status}} {{.Image}}" 2>/dev/null
-            docker ps -a --format "{{.Names}} {{.Status}} {{.Image}}" 2>/dev/null | grep -v yogduoj
+            # Check all Docker volumes
+            echo "--- Docker volumes ---"
+            docker volume ls 2>/dev/null
 
-            # Check nginx config for cap
-            echo "--- Cap nginx config ---"
-            cat /etc/nginx/sites-available/cap.yogdunana.com 2>/dev/null
+            # Check all Docker networks
+            echo "--- Docker networks ---"
+            docker network ls 2>/dev/null
 
-            # Check if port 8000 was used by a Docker container before
-            echo "--- Docker images with port 8000 ---"
-            docker images --format "{{.Repository}}:{{.Tag}}" 2>/dev/null | grep -v yogduoj
+            # Check if there's a cap-related Docker image in history
+            echo "--- Docker image history ---"
+            docker images -a --format "{{.Repository}}:{{.Tag}}" | grep -iv yogduoj | grep -iv nginx | grep -iv mysql
 
-            # Check for any Python/Django/Flask processes
-            echo "--- Python processes ---"
-            ps aux | grep -E '(python|gunicorn|uvicorn|flask|django)' | grep -v grep || echo "No Python processes"
+            # Check root home directory
+            echo "--- Root home ---"
+            ls -la /root/ 2>/dev/null
 
-            # Check bash history for clues
-            echo "--- Recent bash history ---"
-            grep -E '(cap|8000|docker run)' ~/.bash_history 2>/dev/null | tail -20 || echo "No bash history"
+            # Check for any startup scripts
+            echo "--- Startup scripts ---"
+            cat /etc/rc.local 2>/dev/null || echo "No rc.local"
+            ls /etc/init.d/ 2>/dev/null | grep -v yogduoj | head -20
+
+            # Check crontab
+            echo "--- Crontab ---"
+            crontab -l 2>/dev/null || echo "No crontab"
+
+            # Check PM2 dump
+            echo "--- PM2 dump ---"
+            cat /root/.pm2/dump.pm2 2>/dev/null | python3 -m json.tool 2>/dev/null | head -60 || echo "No PM2 dump"
+
+            # Check for any cap-related files in common web directories
+            echo "--- Common web directories ---"
+            ls -la /var/www/ 2>/dev/null
+            ls -la /srv/ 2>/dev/null
+
+            # Check Docker container removal history
+            echo "--- Docker events for cap ---"
+            journalctl -u docker --since "24 hours ago" --no-pager 2>/dev/null | grep -i "cap" | tail -20
+
+            # Check for any Python virtual environments
+            echo "--- Python venvs ---"
+            find / -maxdepth 4 -name "activate" -path "*/bin/activate" 2>/dev/null | grep -v proc | grep -v sys | head -10
+
+            # Check for any running or recently stopped processes related to port 8000
+            echo "--- Port 8000 history ---"
+            journalctl --since "24 hours ago" --no-pager 2>/dev/null | grep 8000 | tail -10
