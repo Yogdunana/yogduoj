@@ -88,7 +88,7 @@ jobs:
                   - submission_data:/data/submissions
                   - problem_data:/data/problems
                 ports:
-                  - "127.0.0.1:8080:8080"
+                  - "127.0.0.1:8081:8080"
                 networks:
                   - yogduoj-net
 
@@ -168,7 +168,7 @@ jobs:
             sleep 3
 
             # Clean up port conflicts
-            for port in 8080 23197 3000; do
+            for port in 8081 23197 3000; do
               pids=$(ss -tlnp "sport = :${port}" 2>/dev/null | grep -oP 'pid=\K[0-9]+' || true)
               if [ -n "$pids" ]; then
                 for pid in $pids; do
@@ -271,35 +271,23 @@ jobs:
               echo "Self-signed cert installed. Replace with Let's Encrypt later."
             fi
 
-            # Test and reload/start host nginx
-            echo "--- Host nginx status before ---"
-            systemctl status nginx 2>/dev/null | head -5 || echo "systemctl not available"
-            ss -tlnp | grep -E ':(80|443)\b' || echo "Nothing on 80/443"
+            # Test and start host nginx
             nginx -t 2>&1
-            echo "--- Nginx error log ---"
-            tail -10 /var/log/nginx/error.log 2>/dev/null || echo "No error log"
-            echo "--- SSL cert check ---"
-            ls -la /etc/letsencrypt/live/oj.yogdunana.com/ 2>/dev/null || echo "No SSL cert dir"
             if [ -f /run/nginx.pid ] && [ -s /run/nginx.pid ]; then
-              echo "Reloading nginx..."
               nginx -s reload 2>/dev/null || true
             else
-              echo "Starting nginx..."
               systemctl start nginx 2>/dev/null || nginx 2>/dev/null || true
               sleep 2
-              echo "--- Nginx error log after start ---"
-              tail -10 /var/log/nginx/error.log 2>/dev/null || echo "No error log"
             fi
-            echo "--- Host nginx status after ---"
+            echo "--- Host nginx ports ---"
             ss -tlnp | grep -E ':(80|443)\b' || echo "Nothing on 80/443"
-            systemctl status nginx 2>/dev/null | head -5 || echo "systemctl not available"
 
             # Wait a bit more for services to stabilize
             sleep 15
 
             # Health check
             echo "=== Health Check ==="
-            curl -sf http://localhost:8080/api/v1/health && echo "Backend: OK" || echo "Backend: FAILED"
+            curl -sf http://localhost:8081/api/v1/health && echo "Backend: OK" || echo "Backend: FAILED"
             curl -sf http://localhost:23197/ -o /dev/null -w "Frontend: HTTP %{http_code}\n" || echo "Frontend: FAILED"
             curl -sf -H "Host: oj.yogdunana.com" https://localhost/ -o /dev/null -w "Via host nginx: HTTP %{http_code}\n" --insecure || echo "Host nginx: FAILED"
 
