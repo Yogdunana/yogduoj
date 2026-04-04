@@ -242,3 +242,11 @@ jobs:
 
             echo "=== Container Status ==="
             docker compose ps
+
+            # Show container logs for debugging
+            echo "=== Backend Logs ==="
+            docker logs yogduoj-backend --tail 50 2>&1 || echo "No backend logs"
+            echo "=== Judge Logs ==="
+            docker logs yogduoj-judge --tail 50 2>&1 || echo "No judge logs"
+            echo "=== Nginx Logs ==="
+            docker logs yogduoj-nginx --tail 20 2>&1 || echo "No nginx logs"
