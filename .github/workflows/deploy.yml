@@ -68,8 +68,6 @@ jobs:
                   MYSQL_DATABASE: yogduoj
                 volumes:
                   - mysql_data:/var/lib/mysql
-                ports:
-                  - "127.0.0.1:3306:3306"
                 networks:
                   - yogduoj-net
                 healthcheck:
@@ -180,7 +178,11 @@ jobs:
             }
             NGINX_EOF
 
-            # Stop existing containers
+            # Stop any existing YogduOJ containers (from previous manual deployments)
+            docker stop yogduoj-backend yogduoj-frontend yogduoj-judge yogduoj-nginx yogduoj-mysql 2>/dev/null || true
+            docker rm yogduoj-backend yogduoj-frontend yogduoj-judge yogduoj-nginx yogduoj-mysql 2>/dev/null || true
+
+            # Stop existing containers from docker-compose
             docker compose down 2>/dev/null || true
 
             # Build and start
