@@ -271,14 +271,21 @@ jobs:
               echo "Self-signed cert installed. Replace with Let's Encrypt later."
             fi
 
-            # Test and reload host nginx
-            nginx -t 2>/dev/null
+            # Test and reload/start host nginx
+            echo "--- Host nginx status before ---"
+            systemctl status nginx 2>/dev/null | head -5 || echo "systemctl not available"
+            ss -tlnp | grep -E ':(80|443)\b' || echo "Nothing on 80/443"
+            nginx -t 2>&1
             if [ -f /run/nginx.pid ] && [ -s /run/nginx.pid ]; then
+              echo "Reloading nginx..."
               nginx -s reload 2>/dev/null || true
             else
-              echo "Nginx not running, starting it..."
-              nginx 2>/dev/null || true
+              echo "Starting nginx..."
+              systemctl start nginx 2>/dev/null || nginx 2>/dev/null || true
             fi
+            echo "--- Host nginx status after ---"
+            ss -tlnp | grep -E ':(80|443)\b' || echo "Nothing on 80/443"
+            systemctl status nginx 2>/dev/null | head -5 || echo "systemctl not available"
 
             # Wait a bit more for services to stabilize
             sleep 15
