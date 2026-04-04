@@ -125,8 +125,8 @@ async function fetchData() {
     usersCounter.setTarget(statsData.total_users || 0)
     problemsCounter.setTarget(statsData.total_problems || 0)
     submissionsCounter.setTarget(statsData.total_submissions || 0)
-    contests.value = contestRes.data.data.items
-    announcements.value = announcementRes.data.data.items
+    contests.value = contestRes.data.data.list || []
+    announcements.value = announcementRes.data.data.list || []
   } catch {
     // Silently fail - use placeholder data
   }
