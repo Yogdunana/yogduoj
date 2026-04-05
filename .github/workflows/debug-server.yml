@@ -1,4 +1,4 @@
-name: Fix CAP and Referral v3
+name: Fix CAP v4
 on:
   workflow_dispatch:
 
@@ -7,54 +7,31 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Fix CAP and Referral
+      - name: Fix CAP
         uses: appleboy/ssh-action@v1
         with:
           host: 101.237.129.33
           port: 23196
           username: root
           password: ${{ secrets.SERVER_PASSWORD }}
-          command_timeout: 10m
+          command_timeout: 5m
           script: |
-            echo "=========================================="
-            echo "=== 1. FIX REFERRAL (Next.js build) ==="
-            echo "=========================================="
-            cd /opt/yogdu-referral
+            echo "=== Find CAP project structure ==="
+            find /opt/ai-captcha -name "Dockerfile" -o -name "requirements.txt" -o -name "docker-compose*" 2>/dev/null
             
-            echo "--- Current .next status ---"
-            ls -la .next/ 2>&1 | head -5
+            echo "=== Check deploy dir ==="
+            ls -la /opt/ai-captcha/deploy/ 2>&1
             
-            echo "--- Rebuilding Next.js ---"
-            npm run build 2>&1 | tail -20
+            echo "=== Check docker-compose.prod.yml ==="
+            cat /opt/ai-captcha/deploy/docker-compose.prod.yml 2>&1
             
-            echo "--- Restarting PM2 ---"
-            pm2 restart yogdu-referral 2>&1
-            sleep 10
+            echo "=== Check if Dockerfile is in deploy/ ==="
+            ls -la /opt/ai-captcha/deploy/Dockerfile 2>&1
             
-            echo "--- Test ---"
-            curl -sf http://localhost:3002/ 2>&1 | head -5 || echo "Referral: still failing"
-            echo ""
-
-            echo "=========================================="
-            echo "=== 2. FIX AI-CAPTCHA (Docker build) ==="
-            echo "=========================================="
-            cd /opt/ai-captcha
+            echo "=== Check backend dir ==="
+            ls -la /opt/ai-captcha/backend/ 2>&1 | head -10
+            ls -la /opt/ai-captcha/backend/Dockerfile 2>&1
+            ls -la /opt/ai-captcha/backend/requirements.txt 2>&1
             
-            echo "--- Check requirements.txt ---"
-            cat requirements.txt 2>&1
-            
-            echo "--- Check Dockerfile ---"
-            cat Dockerfile 2>&1
-            
-            echo "--- Try building with --no-cache ---"
-            cd /opt/ai-captcha/deploy && docker compose -f docker-compose.prod.yml build --no-cache 2>&1 | tail -30
-            
-            echo "--- Start containers ---"
-            docker compose -f docker-compose.prod.yml up -d 2>&1 | tail -10
-            sleep 10
-            
-            echo "--- Port check ---"
-            ss -tlnp | grep 8000 2>&1
-            
-            echo "--- Health check ---"
-            curl -sf http://localhost:8000/ 2>&1 | head -5 || echo "CAP: still failing"
+            echo "=== Check .env in deploy ==="
+            ls -la /opt/ai-captcha/deploy/.env 2>&1
