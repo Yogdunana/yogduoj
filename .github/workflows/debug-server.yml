@@ -1,4 +1,4 @@
-name: Fix Calorie Backend
+name: Fix Calorie Backend v2
 on:
   workflow_dispatch:
 
@@ -16,15 +16,11 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           command_timeout: 5m
           script: |
-            echo "=== PM2 Error Logs ==="
-            pm2 logs calorie-battle --lines 20 --err --nostream 2>&1
-            
-            echo "=== Check server.js location ==="
-            find /opt/calorie-battle -name "server.js" -maxdepth 2 2>/dev/null
-            ls -la /opt/calorie-battle/calorie-battle-server/server.js 2>&1
-            
-            echo "=== Restart with correct path ==="
+            echo "=== Install backend deps in correct directory ==="
             cd /opt/calorie-battle/calorie-battle-server
+            npm install 2>&1 | tail -5
+            
+            echo "=== Restart PM2 ==="
             pm2 delete calorie-battle 2>/dev/null
             pm2 start server.js --name calorie-battle 2>&1
             sleep 5
@@ -33,4 +29,4 @@ jobs:
             pm2 list 2>&1
             
             echo "=== Health Check ==="
-            curl -sf http://localhost:3001/api/health 2>&1 && echo "Calorie Backend: OK" || echo "Calorie Backend: FAILED"
+            curl -sf http://localhost:3001/api/health 2>&1 && echo "Calorie Backend: OK" || curl -sf http://localhost:3001/ 2>&1 | head -3 || echo "Calorie Backend: FAILED"
