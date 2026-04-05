@@ -1,4 +1,4 @@
-name: Fix All Sites
+name: Fix CAP and Referral
 on:
   workflow_dispatch:
 
@@ -7,113 +7,53 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Fix all sites
+      - name: Fix CAP and Referral
         uses: appleboy/ssh-action@v1
         with:
           host: 101.237.129.33
           port: 23196
           username: root
           password: ${{ secrets.SERVER_PASSWORD }}
-          command_timeout: 10m
+          command_timeout: 5m
           script: |
-            set -e
-
             echo "=========================================="
-            echo "=== 1. FIX CALORIE-BATTLE ==="
+            echo "=== 1. FIX AI-CAPTCHA ==="
             echo "=========================================="
-            # Check if project exists, if not clone it
-            if [ ! -d "/opt/calorie-battle" ]; then
-              echo "Cloning calorie-battle..."
-              git clone https://github.com/Yogdunana/calorie-battle.git /opt/calorie-battle
-            else
-              echo "Updating calorie-battle..."
-              cd /opt/calorie-battle && git pull
+            # Check for .env files
+            echo "--- Looking for .env files ---"
+            find /opt/ai-captcha -name ".env*" -type f 2>/dev/null
+            echo ""
+            echo "--- Check deploy directory ---"
+            ls -la /opt/ai-captcha/deploy/ 2>&1
+            echo ""
+            echo "--- Check docker-compose.prod.yml content ---"
+            cat /opt/ai-captcha/deploy/docker-compose.prod.yml 2>&1 | head -40
+            echo ""
+            echo "--- Try docker compose with explicit env ---"
+            cd /opt/ai-captcha/deploy
+            # Check if .env.example exists
+            if [ -f ".env.example" ]; then
+              echo "--- .env.example found ---"
+              cat .env.example
             fi
 
-            # Install backend dependencies
-            echo "Installing backend dependencies..."
-            cd /opt/calorie-battle && npm install --production 2>&1 | tail -3
-
-            # Build frontend
-            echo "Building frontend..."
-            cd /opt/calorie-battle/calorie-battle-web && npm install --legacy-peer-deps 2>&1 | tail -3 && npx vite build 2>&1 | tail -5
-
-            # Ensure uploads dir exists
-            mkdir -p /opt/calorie-battle/calorie-battle-server/uploads
-
-            # Check PM2 status and restart if needed
-            if pm2 describe calorie-battle >/dev/null 2>&1; then
-              echo "Restarting PM2 process..."
-              pm2 restart calorie-battle
-            else
-              echo "Starting PM2 process..."
-              cd /opt/calorie-battle && pm2 start server.js --name calorie-battle
-            fi
-
-            echo "Calorie-battle fix done!"
-            echo ""
-
             echo "=========================================="
-            echo "=== 2. FIX AI-CAPTCHA (CAP) ==="
+            echo "=== 2. FIX REFERRAL ==="
             echo "=========================================="
-            # Project exists at /opt/ai-captcha with docker-compose
-            if [ -d "/opt/ai-captcha/deploy" ]; then
-              echo "Starting AI-CAPTCHA Docker containers..."
-              cd /opt/ai-captcha/deploy && docker compose -f docker-compose.prod.yml up -d 2>&1 | tail -10
-            elif [ -d "/opt/ai-captcha" ]; then
-              echo "Starting AI-CAPTCHA Docker containers..."
-              cd /opt/ai-captcha && docker compose up -d 2>&1 | tail -10
-            fi
-
-            echo "AI-CAPTCHA fix done!"
+            echo "--- Check PM2 logs ---"
+            pm2 logs yogdu-referral --lines 20 --nostream 2>&1
             echo ""
-
-            echo "=========================================="
-            echo "=== 3. FIX REFERRAL (MAIXUAN) ==="
-            echo "=========================================="
-            # Check if referral service is running on port 3002
-            if ! ss -tlnp | grep -q ":3002 "; then
-              echo "Port 3002 not listening, checking referral project..."
-              if [ -d "/opt/yogdu-referral" ]; then
-                echo "Found referral project, starting..."
-                cd /opt/yogdu-referral
-                if [ -f "start.sh" ]; then
-                  bash start.sh 2>&1 | tail -5
-                elif [ -f "docker-compose.yml" ]; then
-                  docker compose up -d 2>&1 | tail -5
-                elif [ -f "package.json" ]; then
-                  npm install --production 2>&1 | tail -3
-                  pm2 start npm --name yogdu-referral -- start 2>&1 || pm2 restart yogdu-referral
-                fi
-              else
-                echo "Referral project not found at /opt/yogdu-referral"
-                # Try to find it
-                find /opt -maxdepth 2 -name "start.sh" -exec grep -l "referral\|maixuan\|3002" {} \; 2>/dev/null
-              fi
-            else
-              echo "Referral service already running on port 3002"
-            fi
-
-            echo "Referral fix done!"
+            echo "--- Check what's on port 3002 ---"
+            ss -tlnp | grep 3002
             echo ""
-
-            echo "=========================================="
-            echo "=== 4. VERIFY ALL SERVICES ==="
-            echo "=========================================="
-            echo "--- PM2 Processes ---"
-            pm2 list 2>&1
+            echo "--- Check referral project ---"
+            ls -la /opt/yogdu-referral/ 2>&1 | head -20
             echo ""
-            echo "--- Docker Containers ---"
-            docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>&1
+            echo "--- Check start.sh ---"
+            cat /opt/yogdu-referral/start.sh 2>&1
             echo ""
-            echo "--- Listening Ports ---"
-            ss -tlnp | grep -E ":(3001|3002|8000|8081|23197) " 2>&1
+            echo "--- Check .env ---"
+            cat /opt/yogdu-referral/.env 2>&1 | head -10
             echo ""
-            echo "--- Health Checks ---"
-            curl -sf http://localhost:3001/api/health 2>&1 && echo "Calorie Backend: OK" || echo "Calorie Backend: FAILED"
-            curl -sf http://localhost:8000/health 2>&1 && echo "CAP Backend: OK" || echo "CAP Backend: checking..."
-            curl -sf http://localhost:8000/ 2>&1 | head -1 && echo "CAP: responding" || echo "CAP: FAILED"
-            curl -sf http://localhost:3002/ 2>&1 | head -1 && echo "Referral: responding" || echo "Referral: FAILED"
-            echo ""
-            echo "--- Nginx Reload ---"
-            nginx -s reload 2>&1 && echo "Nginx reloaded: OK" || echo "Nginx reload: FAILED"
+            echo "--- Test port 3002 ---"
+            curl -sv http://localhost:3002/ 2>&1 | head -20
