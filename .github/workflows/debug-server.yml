@@ -1,4 +1,4 @@
-name: Fix CAP and Referral v2
+name: Fix CAP and Referral v3
 on:
   workflow_dispatch:
 
@@ -14,46 +14,47 @@ jobs:
           port: 23196
           username: root
           password: ${{ secrets.SERVER_PASSWORD }}
-          command_timeout: 5m
+          command_timeout: 10m
           script: |
             echo "=========================================="
-            echo "=== 1. FIX AI-CAPTCHA ==="
+            echo "=== 1. FIX REFERRAL (Next.js build) ==="
             echo "=========================================="
-            # Copy .env to deploy directory
-            cp /opt/ai-captcha/.env /opt/ai-captcha/deploy/.env
-            echo "Copied .env to deploy directory"
+            cd /opt/yogdu-referral
             
-            # Start docker compose
-            cd /opt/ai-captcha/deploy && docker compose -f docker-compose.prod.yml up -d 2>&1 | tail -15
+            echo "--- Current .next status ---"
+            ls -la .next/ 2>&1 | head -5
             
-            echo "Waiting for containers..."
+            echo "--- Rebuilding Next.js ---"
+            npm run build 2>&1 | tail -20
+            
+            echo "--- Restarting PM2 ---"
+            pm2 restart yogdu-referral 2>&1
             sleep 10
             
-            echo "--- Docker Containers ---"
-            docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>&1
+            echo "--- Test ---"
+            curl -sf http://localhost:3002/ 2>&1 | head -5 || echo "Referral: still failing"
+            echo ""
+
+            echo "=========================================="
+            echo "=== 2. FIX AI-CAPTCHA (Docker build) ==="
+            echo "=========================================="
+            cd /opt/ai-captcha
             
-            echo "--- Port 8000 check ---"
+            echo "--- Check requirements.txt ---"
+            cat requirements.txt 2>&1
+            
+            echo "--- Check Dockerfile ---"
+            cat Dockerfile 2>&1
+            
+            echo "--- Try building with --no-cache ---"
+            cd /opt/ai-captcha/deploy && docker compose -f docker-compose.prod.yml build --no-cache 2>&1 | tail -30
+            
+            echo "--- Start containers ---"
+            docker compose -f docker-compose.prod.yml up -d 2>&1 | tail -10
+            sleep 10
+            
+            echo "--- Port check ---"
             ss -tlnp | grep 8000 2>&1
             
             echo "--- Health check ---"
-            curl -sf http://localhost:8000/ 2>&1 | head -5 || echo "CAP: not responding yet"
-
-            echo "=========================================="
-            echo "=== 2. FIX REFERRAL ==="
-            echo "=========================================="
-            # Check if PostgreSQL is running on port 5433
-            echo "--- PostgreSQL check ---"
-            ss -tlnp | grep 5433 2>&1
-            docker ps -a --format "{{.Names}}\t{{.Status}}" | grep -i postgres 2>&1
-            
-            # Check PM2 error logs
-            echo "--- PM2 Error Logs ---"
-            pm2 logs yogdu-referral --lines 30 --err --nostream 2>&1
-            
-            # Restart referral
-            echo "--- Restarting referral ---"
-            cd /opt/yogdu-referral && pm2 restart yogdu-referral 2>&1
-            sleep 5
-            
-            echo "--- Test again ---"
-            curl -sf http://localhost:3002/ 2>&1 | head -5 || echo "Referral: still failing"
+            curl -sf http://localhost:8000/ 2>&1 | head -5 || echo "CAP: still failing"
