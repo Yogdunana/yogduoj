@@ -1,4 +1,4 @@
-name: Fix Server
+name: Fix All Sites
 on:
   workflow_dispatch:
 
@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Restart OJ containers and fix issues
+      - name: Fix all sites
         uses: appleboy/ssh-action@v1
         with:
           host: 101.237.129.33
@@ -16,26 +16,44 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           command_timeout: 5m
           script: |
-            echo "=== 1. Check Docker Compose Project ==="
-            cd /opt/yogduoj 2>/dev/null || cd /root/yogduoj 2>/dev/null || cd /home/yogduoj 2>/dev/null
-            find / -name "docker-compose.yml" -path "*/yogduoj/*" 2>/dev/null | head -5
-            COMPOSE_DIR=$(find / -name "docker-compose.yml" -path "*/yogduoj/*" 2>/dev/null | head -1 | xargs dirname)
-            echo "Compose dir: $COMPOSE_DIR"
+            echo "=========================================="
+            echo "=== 1. CALORIE-BATTLE DIAGNOSIS ==="
+            echo "=========================================="
+            echo "--- Check dist directory ---"
+            ls -la /opt/calorie-battle/calorie-battle-web/dist/ 2>&1 | head -10
+            echo "--- Check if index.html exists ---"
+            ls -la /opt/calorie-battle/calorie-battle-web/dist/index.html 2>&1
+            echo "--- Check full project structure ---"
+            ls -la /opt/calorie-battle/ 2>&1
+            echo "--- Check for docker-compose ---"
+            find /opt/calorie-battle -name "docker-compose*" -o -name "Dockerfile" 2>/dev/null
+            echo "--- Check for running processes on port 3001 ---"
+            ss -tlnp | grep 3001 2>&1
+            echo "--- Check calorie nginx config (full) ---"
+            cat /etc/nginx/sites-enabled/calorie-battle 2>&1
 
-            echo "=== 2. Restart All Containers ==="
-            cd "$COMPOSE_DIR" && docker compose up -d 2>&1
+            echo "=========================================="
+            echo "=== 2. CAP (AI-CAPTCHA) DIAGNOSIS ==="
+            echo "=========================================="
+            echo "--- Check project directory ---"
+            ls -la /opt/ai-captcha-system/ 2>/dev/null || ls -la /opt/cap/ 2>/dev/null || find /opt -maxdepth 2 -name "*captcha*" -o -name "*cap*" 2>/dev/null
+            echo "--- Check for docker-compose ---"
+            find /opt -maxdepth 3 -path "*captcha*docker-compose*" -o -path "*captcha*Dockerfile" 2>/dev/null
+            find /opt -maxdepth 3 -path "*cap*docker-compose*" -o -path "*cap*Dockerfile" 2>/dev/null
+            echo "--- Check for running processes on port 8000 ---"
+            ss -tlnp | grep 8000 2>&1
+            echo "--- Check cap nginx config (full) ---"
+            cat /etc/nginx/sites-enabled/cap.yogdunana.com 2>&1
 
-            echo "=== 3. Wait and Check ==="
-            sleep 15
+            echo "=========================================="
+            echo "=== 3. REFERRAL DIAGNOSIS ==="
+            echo "=========================================="
+            echo "--- Check project directory ---"
+            ls -la /opt/yogdu-referral/ 2>/dev/null || find /opt -maxdepth 2 -name "*referral*" 2>/dev/null
+            echo "--- Check referral nginx config ---"
+            cat /etc/nginx/sites-enabled/yogdu-referral 2>&1
+
+            echo "=========================================="
+            echo "=== 4. ALL DOCKER CONTAINERS ==="
+            echo "=========================================="
             docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>&1
-
-            echo "=== 4. Check calorie site config ==="
-            cat /etc/nginx/sites-enabled/calorie-battle 2>/dev/null || echo "Not found in sites-enabled"
-            find /etc/nginx -name "*calorie*" 2>/dev/null
-
-            echo "=== 5. Check all site configs ==="
-            for f in /etc/nginx/sites-enabled/*; do echo "--- $f ---"; head -30 "$f" 2>/dev/null; done
-
-            echo "=== 6. Health Check ==="
-            curl -sf http://localhost:8081/api/v1/health && echo "Backend: OK" || echo "Backend: FAILED"
-            curl -sf http://localhost:23197/ -o /dev/null -w "Frontend: HTTP %{http_code}\n" || echo "Frontend: FAILED"
